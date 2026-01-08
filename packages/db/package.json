@@ -1,0 +1,40 @@
+{
+  "name": "@bid-catcher/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "generate": "dotenv -e ../../.env -- drizzle-kit generate:pg",
+    "migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
+    "push": "dotenv -e ../../.env -- drizzle-kit push:pg",
+    "studio": "dotenv -e ../../.env -- drizzle-kit studio"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.29.3",
+    "postgres": "^3.4.3",
+    "@bid-catcher/config": "workspace:*",
+    "dotenv-cli": "^7.3.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.20.10",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0"
+  }
+}
+

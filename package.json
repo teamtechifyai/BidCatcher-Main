@@ -1,0 +1,31 @@
+{
+  "name": "bid-catcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Construction bid intake system with PDF extraction and go/no-go scoring",
+  "author": "Techify",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @bid-catcher/api dev",
+    "build": "pnpm -r build",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @bid-catcher/db generate",
+    "db:migrate": "pnpm --filter @bid-catcher/db migrate",
+    "db:push": "pnpm --filter @bid-catcher/db push",
+    "db:studio": "pnpm --filter @bid-catcher/db studio",
+    "clean": "pnpm -r clean && rimraf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "eslint": "^8.55.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.3.3"
+  }
+}
+
+
