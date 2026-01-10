@@ -647,7 +647,7 @@ export default function BidDetailPage() {
                 </CardContent>
               </Card>
 
-              {decisionData.overrides && decisionData.overrides.length > 0 && (
+              {decisionData?.overrides && decisionData.overrides.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Override History</CardTitle>
@@ -673,7 +673,7 @@ export default function BidDetailPage() {
                 </Card>
               )}
 
-              {decisionData.history && decisionData.history.length > 1 && (
+              {decisionData?.history && decisionData.history.length > 1 && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Evaluation History</CardTitle>
