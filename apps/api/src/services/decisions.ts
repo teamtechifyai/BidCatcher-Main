@@ -5,7 +5,7 @@
  * All decisions are append-only and fully auditable.
  */
 
-import type { ClientConfig, DecisionOutcome, DecisionOverrideRequest } from "@bid-catcher/config";
+import type { ClientConfig, DecisionOutcome } from "@bid-catcher/config";
 import { DECISION_OUTCOME } from "@bid-catcher/config";
 import {
   scoreBid,
@@ -464,7 +464,7 @@ export const decisionsService = {
 
     return {
       overrideId: newOverride.id,
-      decisionId: decisionId,
+      decisionId: decisionId as string,
       bidId,
       originalOutcome,
       newOutcome: override.outcome,
@@ -532,7 +532,7 @@ export const decisionsService = {
         createdAt: decision.createdAt.toISOString(),
         decisionVersion: decision.decisionVersion,
         evaluationMethod: decision.evaluationMethod,
-        evaluatedBy: null, // Column not in schema yet
+        evaluatedBy: undefined, // Column not in schema yet
         aiEvaluation: decision.aiEvaluation,
       });
     }

@@ -5,7 +5,7 @@
  * Handles email ingestion, listing, and processing into bids.
  */
 
-import { getDb, incomingBidEmails, bids, clients, eq, desc, sql, and, isNull } from "@bid-catcher/db";
+import { getDb, incomingBidEmails, bids, clients, eq, desc, sql, and } from "@bid-catcher/db";
 
 // ----- Types -----
 
@@ -116,7 +116,7 @@ export const incomingEmailsService = {
       .limit(limit)
       .offset(offset);
 
-    const emails: IncomingEmailSummary[] = results.map((r) => ({
+    const emails: IncomingEmailSummary[] = results.map((r: typeof results[0]) => ({
       id: r.id,
       gmailMessageId: r.gmailMessageId,
       fromEmail: r.fromEmail,

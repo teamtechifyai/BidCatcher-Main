@@ -193,7 +193,7 @@ export async function bidsRoutes(server: FastifyInstance): Promise<void> {
         const result = await bidsService.updateBidStatus(
           id,
           parseResult.data.status,
-          parseResult.data.updatedBy
+          parseResult.data.updatedBy as string | undefined
         );
 
         return reply.status(200).send({

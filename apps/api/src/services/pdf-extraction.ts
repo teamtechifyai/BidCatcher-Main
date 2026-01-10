@@ -86,7 +86,7 @@ export const pdfExtractionService = {
       const result = await extractFieldsFromPdf(extractionInput);
 
       // 5. Store extracted fields (append-only, never overwrite)
-      const fieldsToInsert = result.fields.map((field) => ({
+      const fieldsToInsert = result.fields.map((field: typeof result.fields[0]) => ({
         documentId: input.documentId,
         bidId,
         signalId: field.fieldName,
@@ -177,7 +177,7 @@ export const pdfExtractionService = {
         .where(eq(extractedFields.bidId, bidId))
         .orderBy(extractedFields.signalId, extractedFields.extractionVersion);
 
-      return results.map((r) => ({
+      return results.map((r: typeof results[0]) => ({
         ...r,
         createdAt: r.createdAt.toISOString(),
       }));
@@ -209,7 +209,7 @@ export const pdfExtractionService = {
       )
       .orderBy(extractedFields.signalId);
 
-    return results.map((r) => ({
+    return results.map((r: typeof results[0]) => ({
       ...r,
       createdAt: r.createdAt.toISOString(),
     }));

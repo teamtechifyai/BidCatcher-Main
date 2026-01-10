@@ -386,7 +386,7 @@ export const scoringService = {
     const noThreshold = config.scoring?.autoDisqualifyThreshold || 25;
 
     // 4. Evaluate each criterion
-    const scoreBreakdown: CriterionScore[] = criteria.map((criterion) =>
+    const scoreBreakdown: CriterionScore[] = criteria.map((criterion: ScoringCriterion) =>
       evaluateCriterion(criterion, extractedData)
     );
 
@@ -567,7 +567,7 @@ export const scoringService = {
     }
 
     // Get all overrides for these decisions
-    const decisionIds = decisions.map((d) => d.id);
+    const decisionIds = decisions.map((d: typeof decisions[0]) => d.id);
     const overrides = await db
       .select({
         id: decisionOverrides.id,
@@ -582,10 +582,10 @@ export const scoringService = {
       .where(sql`${decisionOverrides.decisionId} = ANY(${decisionIds})`);
 
     // Map overrides to decisions
-    const overrideMap = new Map(overrides.map((o) => [o.decisionId, o]));
+    const overrideMap = new Map(overrides.map((o: typeof overrides[0]) => [o.decisionId, o]));
 
     // Build response
-    const decisionHistory = decisions.map((d) => {
+    const decisionHistory = decisions.map((d: typeof decisions[0]) => {
       const override = overrideMap.get(d.id);
       return {
         id: d.id,

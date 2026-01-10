@@ -61,7 +61,22 @@ interface BidDocument {
   createdAt: string;
 }
 
-interface BidDetail extends BidSummary {
+interface BidDetail {
+  id: string;
+  clientId: string;
+  clientName: string | null;
+  projectName: string | null;
+  status: string;
+  intakeSource: string;
+  senderEmail: string | null;
+  senderName: string | null;
+  senderCompany: string | null;
+  documentCount: number;
+  validationWarnings: unknown[] | null;
+  receivedAt: string;
+  createdAt: string;
+  customFields: Record<string, unknown> | null;
+  confidenceScores: Record<string, number> | null;
   emailSubject: string | null;
   emailBody: string | null;
   rawPayload: unknown;
@@ -83,6 +98,16 @@ interface BidDetail extends BidSummary {
       boundingBox: unknown | null;
     } | null;
   }>;
+  latestDecision: {
+    outcome: string;
+    totalScore: number | null;
+    scorePercentage: number | null;
+    rationale: string | null;
+    evaluatedBy: string | null;
+    evaluationMethod: string | null;
+    aiEvaluation: unknown;
+    decidedAt: string;
+  } | null;
   decision: {
     id: string;
     outcome: string;
@@ -175,7 +200,7 @@ export const bidsService = {
       .offset(query.offset);
 
     // Get document counts for each bid
-    const bidIds = results.map((r) => r.id);
+    const bidIds = results.map((r: { id: string }) => r.id);
     const docCounts = bidIds.length > 0
       ? await db
           .select({
@@ -187,7 +212,7 @@ export const bidsService = {
           .groupBy(bidDocuments.bidId)
       : [];
 
-    const docCountMap = new Map(docCounts.map((d) => [d.bidId, d.count]));
+    const docCountMap = new Map(docCounts.map((d: { bidId: string; count: number }) => [d.bidId, d.count]));
 
     // Get extracted fields for each bid with citation data
     const extractedFieldsResults = bidIds.length > 0
@@ -281,7 +306,7 @@ export const bidsService = {
       }
     }
 
-    const bidSummaries: BidSummary[] = results.map((r) => {
+    const bidSummaries: BidSummary[] = results.map((r: typeof results[0]) => {
       // Extract customFields from rawPayload
       const rawPayload = r.rawPayload as Record<string, unknown> | null;
       const customFields = (rawPayload?.customFields as Record<string, unknown>) || null;
@@ -369,6 +394,11 @@ export const bidsService = {
       .where(eq(bidDocuments.bidId, id))
       .orderBy(bidDocuments.createdAt);
 
+    // Extract customFields and confidenceScores from rawPayload
+    const rawPayloadData = bid.rawPayload as Record<string, unknown> | null;
+    const customFields = (rawPayloadData?.customFields as Record<string, unknown>) || null;
+    const confidenceScores = (rawPayloadData?.confidenceScores as Record<string, number>) || null;
+
     // Get extracted fields with citation data and document info
     const fields = await db
       .select({
@@ -429,9 +459,21 @@ export const bidsService = {
     const clientConfigInfo = config
       ? {
           requiredFields: config.intake?.requiredFields || [],
-          pdfSignals: config.pdfExtraction?.signals?.map((s) => s.signalId) || [],
+          pdfSignals: config.pdfExtraction?.signals?.map((s: { signalId: string }) => s.signalId) || [],
         }
       : null;
+
+    // Build latestDecision
+    const latestDecision = decisions.length > 0 ? {
+      outcome: decisions[0].outcome,
+      totalScore: decisions[0].totalScore,
+      scorePercentage: decisions[0].scorePercentage,
+      rationale: decisions[0].rationale,
+      evaluatedBy: null as string | null,
+      evaluationMethod: decisions[0].evaluationMethod,
+      aiEvaluation: decisions[0].aiEvaluation,
+      decidedAt: decisions[0].createdAt.toISOString(),
+    } : null;
 
     return {
       id: bid.id,
@@ -450,7 +492,10 @@ export const bidsService = {
       validationWarnings: bid.validationWarnings as unknown[] | null,
       receivedAt: bid.receivedAt.toISOString(),
       createdAt: bid.createdAt.toISOString(),
-      documents: documents.map((d) => ({
+      customFields,
+      confidenceScores,
+      latestDecision,
+      documents: documents.map((d: typeof documents[0]) => ({
         id: d.id,
         filename: d.filename,
         contentType: d.contentType,
@@ -460,7 +505,7 @@ export const bidsService = {
         storagePath: d.storagePath,
         createdAt: d.createdAt.toISOString(),
       })),
-      extractedFields: fields.map((f) => ({
+      extractedFields: fields.map((f: typeof fields[0]) => ({
         id: f.id,
         signalId: f.signalId,
         extractedValue: f.extractedValue,
@@ -489,7 +534,7 @@ export const bidsService = {
             createdAt: decisions[0].createdAt.toISOString(),
           }
         : null,
-      overrides: overrideResults.map((o) => ({
+      overrides: overrideResults.map((o: typeof overrideResults[0]) => ({
         id: o.id,
         originalOutcome: o.originalOutcome,
         overriddenOutcome: o.overriddenOutcome,

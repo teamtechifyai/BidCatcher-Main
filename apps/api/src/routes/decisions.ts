@@ -5,7 +5,6 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { DecisionOverrideRequestSchema } from "@bid-catcher/config";
 import { decisionsService } from "../services/decisions.js";
 
 // UUID validation regex
