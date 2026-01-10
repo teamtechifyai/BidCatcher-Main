@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, CheckCircle2, Loader2, KeyRound } from 'lucide-react';
 
-export default function AcceptInvitePage() {
+function AcceptInvitePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -204,3 +204,14 @@ export default function AcceptInvitePage() {
   );
 }
 
+export default function AcceptInvitePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <AcceptInvitePageContent />
+    </Suspense>
+  );
+}

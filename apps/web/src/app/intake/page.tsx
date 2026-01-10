@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/use-auth';
@@ -70,7 +70,7 @@ interface UploadedPDF {
 type IntakeMode = 'upload' | 'manual';
 type UploadType = 'file' | 'folder';
 
-export default function IntakePage() {
+function IntakePageContent() {
   const searchParams = useSearchParams();
   const preselectedClientId = searchParams.get('clientId');
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -905,5 +905,17 @@ export default function IntakePage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function IntakePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[50vh] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    }>
+      <IntakePageContent />
+    </Suspense>
   );
 }
