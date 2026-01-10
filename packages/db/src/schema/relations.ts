@@ -1,11 +1,11 @@
 import { relations } from "drizzle-orm";
-import { clients } from "./clients";
-import { bids } from "./bids";
-import { bidDocuments } from "./bid-documents";
-import { extractedFields } from "./extracted-fields";
-import { goNoGoDecisions, decisionOverrides } from "./decisions";
-import { jobtreadHandoffs } from "./jobtread-handoffs";
-import { incomingBidEmails } from "./incoming-emails";
+import { clients } from "./clients.js";
+import { bids } from "./bids.js";
+import { bidDocuments } from "./bid-documents.js";
+import { extractedFields } from "./extracted-fields.js";
+import { goNoGoDecisions, decisionOverrides } from "./decisions.js";
+import { jobtreadHandoffs } from "./jobtread-handoffs.js";
+import { incomingBidEmails } from "./incoming-emails.js";
 
 /**
  * Drizzle Relations

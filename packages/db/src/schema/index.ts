@@ -13,13 +13,13 @@
  * - workspace_memberships
  */
 
-export * from "./clients";
-export * from "./bids";
-export * from "./bid-documents";
-export * from "./extracted-fields";
-export * from "./decisions";
-export * from "./jobtread-handoffs";
-export * from "./users";
-export * from "./incoming-emails";
-export * from "./relations";
+export * from "./clients.js";
+export * from "./bids.js";
+export * from "./bid-documents.js";
+export * from "./extracted-fields.js";
+export * from "./decisions.js";
+export * from "./jobtread-handoffs.js";
+export * from "./users.js";
+export * from "./incoming-emails.js";
+export * from "./relations.js";
 
