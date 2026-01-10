@@ -6,7 +6,7 @@ import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowRight, FileText, Users, Upload, ArrowRightLeft, Shield, Building2, Loader2 } from 'lucide-react';
+import { ArrowRight, FileText, Users, Upload, ArrowRightLeft, Shield, Building2, Loader2, Mail } from 'lucide-react';
 
 export default function Home() {
   const { user, isOwner, isAdmin, currentWorkspace, workspaces, isLoading, switchWorkspace } = useAuth();
@@ -31,7 +31,22 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="group hover:shadow-lg transition-shadow">
+            <CardHeader className="pb-4">
+              <div className="h-12 w-12 rounded-lg bg-foreground/5 flex items-center justify-center mb-4">
+                <Mail className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-xl">Incoming Bids</CardTitle>
+              <CardDescription>View bids received via email.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/incoming-bids">View Emails<ArrowRight className="ml-2 h-4 w-4" /></Link>
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="group hover:shadow-lg transition-shadow">
             <CardHeader className="pb-4">
               <div className="h-12 w-12 rounded-lg bg-foreground/5 flex items-center justify-center mb-4">
@@ -191,7 +206,27 @@ export default function Home() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="group hover:shadow-lg transition-shadow flex flex-col">
+          <CardHeader className="pb-4 flex-1">
+            <div className="h-12 w-12 rounded-lg bg-foreground/5 flex items-center justify-center mb-4">
+              <Mail className="h-6 w-6" />
+            </div>
+            <CardTitle className="text-xl">Incoming Bids</CardTitle>
+            <CardDescription className="text-sm leading-relaxed">
+              View bid emails received via Gmail integration.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/incoming-bids">
+                View Emails
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         <Card className="group hover:shadow-lg transition-shadow flex flex-col">
           <CardHeader className="pb-4 flex-1">
             <div className="h-12 w-12 rounded-lg bg-foreground/5 flex items-center justify-center mb-4">
@@ -276,7 +311,27 @@ export default function Home() {
               </Button>
             </CardContent>
           </Card>
-        ) : null}
+        ) : (
+          <Card className="group hover:shadow-lg transition-shadow flex flex-col">
+            <CardHeader className="pb-4 flex-1">
+              <div className="h-12 w-12 rounded-lg bg-foreground/5 flex items-center justify-center mb-4">
+                <Users className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-xl">Clients</CardTitle>
+              <CardDescription className="text-sm leading-relaxed">
+                Manage client configurations and scoring rules.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/clients">
+                  Manage Clients
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Workspace List for Owners */}

@@ -12,6 +12,7 @@ import { decisionsRoutes } from "./routes/decisions.js";
 import { handoffRoutes } from "./routes/handoff.js";
 import { clientsRoutes } from "./routes/clients.js";
 import { extractionRoutes } from "./routes/extraction.js";
+import { incomingEmailsRoutes } from "./routes/incoming-emails.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
 
@@ -55,6 +56,7 @@ export async function createServer() {
   await server.register(decisionsRoutes, { prefix: "/bids" }); // Decision routes under /bids/:id/...
   await server.register(handoffRoutes, { prefix: "/bids" }); // Handoff routes under /bids/:id/handoff/...
   await server.register(documentsRoutes, { prefix: "/documents" });
+  await server.register(incomingEmailsRoutes, { prefix: "/incoming-emails" });
 
   return server;
 }

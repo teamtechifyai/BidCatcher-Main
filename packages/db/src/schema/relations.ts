@@ -5,6 +5,7 @@ import { bidDocuments } from "./bid-documents";
 import { extractedFields } from "./extracted-fields";
 import { goNoGoDecisions, decisionOverrides } from "./decisions";
 import { jobtreadHandoffs } from "./jobtread-handoffs";
+import { incomingBidEmails } from "./incoming-emails";
 
 /**
  * Drizzle Relations
@@ -26,6 +27,7 @@ export const bidsRelations = relations(bids, ({ one, many }) => ({
   decisions: many(goNoGoDecisions),
   overrides: many(decisionOverrides),
   jobtreadHandoffs: many(jobtreadHandoffs),
+  incomingEmail: one(incomingBidEmails),
 }));
 
 export const bidDocumentsRelations = relations(bidDocuments, ({ one, many }) => ({
@@ -73,3 +75,9 @@ export const jobtreadHandoffsRelations = relations(jobtreadHandoffs, ({ one }) =
   }),
 }));
 
+export const incomingBidEmailsRelations = relations(incomingBidEmails, ({ one }) => ({
+  bid: one(bids, {
+    fields: [incomingBidEmails.bidId],
+    references: [bids.id],
+  }),
+}));

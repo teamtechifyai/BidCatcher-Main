@@ -34,8 +34,28 @@ import {
   ClipboardList,
   FileJson,
   Files,
-  Scale
+  Scale,
+  Quote,
+  FileSearch
 } from 'lucide-react';
+
+interface Citation {
+  documentId: string | null;
+  documentFilename: string | null;
+  pageNumber: number | null;
+  text: string | null;
+  context: string | null;
+  boundingBox: unknown | null;
+}
+
+interface ExtractedField {
+  id: string;
+  signalId: string;
+  extractedValue: unknown;
+  confidence: number | null;
+  extractionMethod: string | null;
+  citation?: Citation | null;
+}
 
 interface Bid {
   id: string;
@@ -50,7 +70,7 @@ interface Bid {
   receivedAt: string;
   createdAt: string;
   rawPayload: Record<string, unknown>;
-  extractedFields?: Array<{ id: string; signalId: string; extractedValue: unknown; confidence: number | null; extractionMethod: string | null }>;
+  extractedFields?: ExtractedField[];
   documents?: Array<{ id: string; filename: string; contentType: string; sizeBytes: number | null; createdAt: string }>;
   decision?: {
     id: string;
@@ -230,9 +250,13 @@ export default function BidDetailPage() {
 
   // Build extracted fields map from API extractedFields (signalId-based)
   const extractedFieldsMap = bid.extractedFields?.reduce((acc, f) => { 
-    acc[f.signalId] = { value: f.extractedValue, confidence: f.confidence ?? 0.5 }; 
+    acc[f.signalId] = { 
+      value: f.extractedValue, 
+      confidence: f.confidence ?? 0.5,
+      citation: f.citation || null,
+    }; 
     return acc; 
-  }, {} as Record<string, { value: unknown; confidence: number }>) || {};
+  }, {} as Record<string, { value: unknown; confidence: number; citation: Citation | null }>) || {};
   
   // Get custom fields and confidence scores from rawPayload (for backwards compatibility with older bids)
   const customFields = (bid.rawPayload?.customFields as Record<string, unknown>) || {};
@@ -425,7 +449,7 @@ export default function BidDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">
-                  {Object.entries(extractedFieldsMap).map(([key, { value, confidence }]) => (
+                  {Object.entries(extractedFieldsMap).map(([key, { value, confidence, citation }]) => (
                     <div key={key} className="p-4 rounded-lg border bg-muted/30">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
@@ -433,9 +457,34 @@ export default function BidDetailPage() {
                           {Math.round(confidence * 100)}%
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground break-words">
+                      <p className="text-sm text-muted-foreground break-words mb-2">
                         {value !== null && value !== undefined && String(value) !== '' ? String(value) : <em className="text-muted-foreground/50">Not extracted</em>}
                       </p>
+                      
+                      {/* Citation - only show if value was actually extracted */}
+                      {value !== null && value !== undefined && String(value) !== '' && citation && (citation.documentFilename || citation.text) && (
+                        <div className="mt-3 pt-3 border-t border-dashed">
+                          <div className="flex items-start gap-2">
+                            <Quote className="h-3 w-3 mt-1 text-muted-foreground shrink-0" />
+                            <div className="text-xs space-y-1">
+                              {citation.text && (
+                                <p className="italic text-muted-foreground line-clamp-2">&ldquo;{citation.text}&rdquo;</p>
+                              )}
+                              <div className="flex items-center gap-2 text-muted-foreground/70">
+                                {citation.documentFilename && (
+                                  <span className="flex items-center gap-1">
+                                    <FileSearch className="h-3 w-3" />
+                                    {citation.documentFilename}
+                                  </span>
+                                )}
+                                {citation.pageNumber && (
+                                  <span>• Page {citation.pageNumber}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

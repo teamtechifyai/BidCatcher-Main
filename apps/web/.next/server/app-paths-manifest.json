@@ -1,3 +1,9 @@
 {
-  "/page": "app/page.js"
+  "/page": "app/page.js",
+  "/login/page": "app/login/page.js",
+  "/bids/[id]/page": "app/bids/[id]/page.js",
+  "/intake/page": "app/intake/page.js",
+  "/incoming-bids/page": "app/incoming-bids/page.js",
+  "/workspace/[id]/config/page": "app/workspace/[id]/config/page.js",
+  "/bids/page": "app/bids/page.js"
 }

@@ -20,5 +20,6 @@ export * from "./extracted-fields";
 export * from "./decisions";
 export * from "./jobtread-handoffs";
 export * from "./users";
+export * from "./incoming-emails";
 export * from "./relations";
 

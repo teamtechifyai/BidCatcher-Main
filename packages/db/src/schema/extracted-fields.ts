@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, real, integer, timestamp, index, unique } from "drizzle-orm/pg-core";
+import { pgTable, uuid, varchar, text, real, integer, timestamp, index, unique, jsonb } from "drizzle-orm/pg-core";
 import { bidDocuments } from "./bid-documents";
 import { bids } from "./bids";
 
@@ -58,8 +58,17 @@ export const extractedFields = pgTable(
      */
     extractionVersion: integer("extraction_version").notNull().default(1),
 
-    /** Source location in document (for highlighting) */
+    /** Source location in document (for highlighting) - legacy */
     sourceLocation: text("source_location"),
+
+    /** The exact quoted text from the document */
+    citationText: text("citation_text"),
+
+    /** Surrounding context (paragraph or sentence) */
+    citationContext: text("citation_context"),
+
+    /** PDF bounding box coordinates: {x, y, width, height, page} */
+    boundingBox: jsonb("bounding_box"),
 
     // ----- Timestamps -----
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

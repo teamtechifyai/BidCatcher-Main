@@ -33,13 +33,21 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { RefreshCw, Trash2, X, ExternalLink, Filter, FileText, Building2, Loader2, ChevronDown, ChevronUp, Brain, Zap } from 'lucide-react';
+import { RefreshCw, Trash2, X, ExternalLink, Filter, FileText, Building2, Loader2, ChevronDown, ChevronUp, Brain, Zap, Quote } from 'lucide-react';
 import { WorkspaceIndicator } from '@/components/workspace-switcher';
+
+interface Citation {
+  documentId: string | null;
+  documentFilename: string | null;
+  pageNumber: number | null;
+  text: string | null;
+}
 
 interface ExtractedField {
   fieldKey: string;
   extractedValue: unknown;
   confidence: number | null;
+  citation?: Citation | null;
 }
 
 interface LatestDecision {
@@ -558,19 +566,31 @@ export default function BidsPage() {
                               <>
                                 <div className="grid gap-2 max-h-[240px] overflow-y-auto pr-2 scrollbar-thin">
                                   {bid.extractedFields.slice(0, 10).map((field) => (
-                                    <div key={field.fieldKey} className="flex items-start justify-between p-2 rounded border bg-background text-sm group/field">
-                                      <div className="flex items-center gap-2">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${
-                                          (field.confidence ?? 0) >= 0.8 ? 'bg-green-500' :
-                                          (field.confidence ?? 0) >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'
-                                        }`} title={`${Math.round((field.confidence ?? 0) * 100)}% confidence`} />
-                                        <span className="text-muted-foreground capitalize text-xs">{field.fieldKey.replace(/_/g, ' ')}</span>
+                                    <div key={field.fieldKey} className="p-2 rounded border bg-background text-sm group/field">
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2">
+                                          <div className={`w-1.5 h-1.5 rounded-full ${
+                                            (field.confidence ?? 0) >= 0.8 ? 'bg-green-500' :
+                                            (field.confidence ?? 0) >= 0.5 ? 'bg-yellow-500' : 'bg-red-500'
+                                          }`} title={`${Math.round((field.confidence ?? 0) * 100)}% confidence`} />
+                                          <span className="text-muted-foreground capitalize text-xs">{field.fieldKey.replace(/_/g, ' ')}</span>
+                                        </div>
+                                        <span className="font-medium text-right max-w-[55%] truncate text-xs" title={String(field.extractedValue || '')}>
+                                          {field.extractedValue != null && String(field.extractedValue) !== '' 
+                                            ? String(field.extractedValue).substring(0, 50) + (String(field.extractedValue).length > 50 ? '...' : '')
+                                            : <span className="text-muted-foreground/50 italic">empty</span>}
+                                        </span>
                                       </div>
-                                      <span className="font-medium text-right max-w-[55%] truncate text-xs" title={String(field.extractedValue || '')}>
-                                        {field.extractedValue != null && String(field.extractedValue) !== '' 
-                                          ? String(field.extractedValue).substring(0, 50) + (String(field.extractedValue).length > 50 ? '...' : '')
-                                          : <span className="text-muted-foreground/50 italic">empty</span>}
-                                      </span>
+                                      {/* Citation indicator - only show if value was extracted */}
+                                      {field.extractedValue != null && String(field.extractedValue) !== '' && field.citation && (field.citation.documentFilename || field.citation.text) && (
+                                        <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                                          <Quote className="h-3 w-3" />
+                                          <span className="truncate">
+                                            {field.citation.documentFilename || 'Document'}
+                                            {field.citation.pageNumber && ` (p.${field.citation.pageNumber})`}
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                   {bid.extractedFields.length > 10 && (

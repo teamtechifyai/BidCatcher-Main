@@ -25,7 +25,17 @@ interface BidSummary {
   validationWarnings: unknown[] | null;
   receivedAt: string;
   createdAt: string;
-  extractedFields: Array<{ fieldKey: string; extractedValue: unknown; confidence: number | null }>;
+  extractedFields: Array<{ 
+    fieldKey: string; 
+    extractedValue: unknown; 
+    confidence: number | null;
+    citation: {
+      documentId: string | null;
+      documentFilename: string | null;
+      pageNumber: number | null;
+      text: string | null;
+    } | null;
+  }>;
   customFields: Record<string, unknown> | null;
   confidenceScores: Record<string, number> | null;
   latestDecision: {
@@ -63,6 +73,15 @@ interface BidDetail extends BidSummary {
     confidence: number | null;
     extractionMethod: string | null;
     createdAt: string;
+    // Citation fields
+    citation: {
+      documentId: string | null;
+      documentFilename: string | null;
+      pageNumber: number | null;
+      text: string | null;
+      context: string | null;
+      boundingBox: unknown | null;
+    } | null;
   }>;
   decision: {
     id: string;
@@ -170,7 +189,7 @@ export const bidsService = {
 
     const docCountMap = new Map(docCounts.map((d) => [d.bidId, d.count]));
 
-    // Get extracted fields for each bid (key fields only for summary)
+    // Get extracted fields for each bid with citation data
     const extractedFieldsResults = bidIds.length > 0
       ? await db
           .select({
@@ -178,13 +197,29 @@ export const bidsService = {
             signalId: extractedFields.signalId,
             extractedValue: extractedFields.extractedValue,
             confidence: extractedFields.confidence,
+            pageNumber: extractedFields.pageNumber,
+            rawValue: extractedFields.rawValue,
+            citationText: extractedFields.citationText,
+            documentId: extractedFields.documentId,
+            documentFilename: bidDocuments.filename,
           })
           .from(extractedFields)
+          .leftJoin(bidDocuments, eq(extractedFields.documentId, bidDocuments.id))
           .where(inArray(extractedFields.bidId, bidIds))
       : [];
 
-    // Group extracted fields by bid ID
-    const extractedFieldsMap = new Map<string, Array<{ fieldKey: string; extractedValue: unknown; confidence: number | null }>>();
+    // Group extracted fields by bid ID with citation info
+    const extractedFieldsMap = new Map<string, Array<{ 
+      fieldKey: string; 
+      extractedValue: unknown; 
+      confidence: number | null;
+      citation: {
+        documentId: string | null;
+        documentFilename: string | null;
+        pageNumber: number | null;
+        text: string | null;
+      } | null;
+    }>>();
     for (const field of extractedFieldsResults) {
       if (!extractedFieldsMap.has(field.bidId)) {
         extractedFieldsMap.set(field.bidId, []);
@@ -193,6 +228,12 @@ export const bidsService = {
         fieldKey: field.signalId,
         extractedValue: field.extractedValue,
         confidence: field.confidence,
+        citation: field.documentId ? {
+          documentId: field.documentId,
+          documentFilename: field.documentFilename,
+          pageNumber: field.pageNumber,
+          text: field.citationText || field.rawValue,
+        } : null,
       });
     }
 
@@ -328,7 +369,7 @@ export const bidsService = {
       .where(eq(bidDocuments.bidId, id))
       .orderBy(bidDocuments.createdAt);
 
-    // Get extracted fields
+    // Get extracted fields with citation data and document info
     const fields = await db
       .select({
         id: extractedFields.id,
@@ -336,9 +377,17 @@ export const bidsService = {
         extractedValue: extractedFields.extractedValue,
         confidence: extractedFields.confidence,
         extractionMethod: extractedFields.extractionMethod,
+        pageNumber: extractedFields.pageNumber,
+        rawValue: extractedFields.rawValue,
+        citationText: extractedFields.citationText,
+        citationContext: extractedFields.citationContext,
+        boundingBox: extractedFields.boundingBox,
+        documentId: extractedFields.documentId,
+        documentFilename: bidDocuments.filename,
         createdAt: extractedFields.createdAt,
       })
       .from(extractedFields)
+      .leftJoin(bidDocuments, eq(extractedFields.documentId, bidDocuments.id))
       .where(eq(extractedFields.bidId, id))
       .orderBy(extractedFields.createdAt);
 
@@ -418,6 +467,14 @@ export const bidsService = {
         confidence: f.confidence,
         extractionMethod: f.extractionMethod,
         createdAt: f.createdAt.toISOString(),
+        citation: f.documentId ? {
+          documentId: f.documentId,
+          documentFilename: f.documentFilename,
+          pageNumber: f.pageNumber,
+          text: f.citationText || f.rawValue,
+          context: f.citationContext,
+          boundingBox: f.boundingBox,
+        } : null,
       })),
       decision: decisions.length > 0
         ? {
