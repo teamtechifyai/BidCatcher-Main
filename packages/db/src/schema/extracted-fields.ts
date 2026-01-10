@@ -1,6 +1,6 @@
 import { pgTable, uuid, varchar, text, real, integer, timestamp, index, unique, jsonb } from "drizzle-orm/pg-core";
-import { bidDocuments } from "./bid-documents";
-import { bids } from "./bids";
+import { bidDocuments } from "./bid-documents.js";
+import { bids } from "./bids.js";
 
 /**
  * Extracted Fields table

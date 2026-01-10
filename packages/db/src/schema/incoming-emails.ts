@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, timestamp, jsonb, index, boolean } from "drizzle-orm/pg-core";
-import { bids } from "./bids";
+import { bids } from "./bids.js";
 
 /**
  * Incoming Bid Emails table

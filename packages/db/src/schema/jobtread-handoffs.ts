@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
-import { bids } from "./bids";
+import { bids } from "./bids.js";
 
 /**
  * JobTread Handoff Status

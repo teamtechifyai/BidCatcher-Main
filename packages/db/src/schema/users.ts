@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, boolean, timestamp, pgEnum } from "drizzle-orm/pg-core";
-import { clients } from "./clients";
+import { clients } from "./clients.js";
 
 /**
  * User roles enum
