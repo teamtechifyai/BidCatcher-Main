@@ -531,7 +531,7 @@ export const decisionsService = {
         rationale: decision.rationale,
         createdAt: decision.createdAt.toISOString(),
         decisionVersion: decision.decisionVersion,
-        evaluationMethod: decision.evaluationMethod,
+        evaluationMethod: decision.evaluationMethod ?? undefined,
         evaluatedBy: undefined, // Column not in schema yet
         aiEvaluation: decision.aiEvaluation,
       });
