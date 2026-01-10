@@ -106,7 +106,7 @@ interface DecisionData {
 export default function BidDetailPage() {
   const params = useParams();
   const bidId = params.id as string;
-  const { profile } = useAuth();
+  const { user } = useAuth();
 
   const [bid, setBid] = useState<Bid | null>(null);
   const [decisionData, setDecisionData] = useState<DecisionData | null>(null);
@@ -181,7 +181,7 @@ export default function BidDetailPage() {
         body: JSON.stringify({ 
           outcome: overrideOutcome, 
           rationale: overrideRationale,
-          overriddenBy: profile?.email || 'unknown',
+          overriddenBy: user?.email || 'unknown',
           reasonCategory: 'other',
         }),
       });
