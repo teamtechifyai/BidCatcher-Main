@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import type { User, Session } from '@supabase/supabase-js';
+import type { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import type { UserProfile, Workspace, AuthState } from '@/lib/types/auth';
 
 interface AuthContextType extends AuthState {
@@ -357,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     
     // Listen for auth changes (for sign in/out events)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       console.log('[Auth] Auth event:', event);
       
       if (event === 'INITIAL_SESSION') {
