@@ -1,7 +1,1 @@
-{
-  "/login/page": "app/login/page.js",
-  "/incoming-bids/page": "app/incoming-bids/page.js",
-  "/bids/page": "app/bids/page.js",
-  "/workspace/[id]/config/page": "app/workspace/[id]/config/page.js",
-  "/admin/users/page": "app/admin/users/page.js"
-}
+{}

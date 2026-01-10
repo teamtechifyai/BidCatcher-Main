@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+
+// API URL for server-side rewrites (build time)
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+
 const nextConfig = {
   reactStrictMode: true,
   
@@ -7,10 +11,11 @@ const nextConfig = {
   
   // API rewrites to proxy requests to the backend
   async rewrites() {
+    console.log('[Next.js Config] API rewrites destination:', API_URL);
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3000/:path*',
+        destination: `${API_URL}/:path*`,
       },
     ];
   },
