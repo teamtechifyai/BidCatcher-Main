@@ -61,7 +61,13 @@ async function inviteWithServiceRole(
     },
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
+  // Get app URL from env var - REQUIRED for production
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl) {
+    console.error('[Invite API] NEXT_PUBLIC_APP_URL not set!');
+    throw new Error('Server misconfigured: NEXT_PUBLIC_APP_URL environment variable is required');
+  }
+  console.log('[Invite API] Using app URL:', appUrl);
 
   if (generateLinkOnly) {
     // Generate a magic link that can be shared manually
