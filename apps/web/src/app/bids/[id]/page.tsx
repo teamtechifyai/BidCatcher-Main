@@ -36,8 +36,75 @@ import {
   Files,
   Scale,
   Quote,
-  FileSearch
+  FileSearch,
+  Loader2
 } from 'lucide-react';
+
+function SyncEmailDocumentsButton({ bidId, onSynced }: { bidId: string; onSynced: () => void }) {
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const handleSync = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/bids/${bidId}/sync-email-documents`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && (data.data?.created > 0 || data.data?.updated > 0)) {
+        onSynced();
+      } else if (!data.success) {
+        setError(data.error?.message || 'Sync failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+  return (
+    <div>
+      <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+        {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+        Sync from email
+      </Button>
+      {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+    </div>
+  );
+}
+
+function SyncToGhlButton({ bidId, onSynced }: { bidId: string; onSynced: () => void }) {
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const handleSync = async () => {
+    setSyncing(true);
+    setError(null);
+    setSuccess(false);
+    try {
+      const res = await fetch(`/api/ghl/sync-bid/${bidId}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.success && data.data?.opportunityId) {
+        setSuccess(true);
+        onSynced();
+      } else {
+        setError(data.data?.error || data.error?.message || 'Sync failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  };
+  return (
+    <div>
+      <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
+        {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+        Sync to GHL
+      </Button>
+      {success && <p className="text-sm text-green-600 mt-2">Synced to GHL</p>}
+      {error && <p className="text-sm text-red-500 mt-2">{error}</p>}
+    </div>
+  );
+}
 
 interface Citation {
   documentId: string | null;
@@ -391,6 +458,8 @@ export default function BidDetailPage() {
                   Override Decision
                 </Button>
 
+                <SyncToGhlButton bidId={bid.id} onSynced={fetchBid} />
+
                 {decisionData?.currentOutcome === 'GO' && (
                   <Button variant="outline" onClick={sendToJobTread} disabled={handing} className="w-full">
                     {handing ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Sending...</> : <><Send className="h-4 w-4 mr-2" />Send to JobTread</>}
@@ -553,7 +622,12 @@ export default function BidDetailPage() {
                   <CardTitle className="text-base">Attached Documents</CardTitle>
                   <CardDescription>Documents uploaded with this bid</CardDescription>
                 </div>
-                <span className="text-sm text-muted-foreground">{bid.documents?.length || 0} files</span>
+                <div className="flex items-center gap-2">
+                  {bid.intakeSource === 'email' && bid.documents?.some(d => !d.sizeBytes || d.sizeBytes === 0) && (
+                    <SyncEmailDocumentsButton bidId={bid.id} onSynced={fetchBid} />
+                  )}
+                  <span className="text-sm text-muted-foreground">{bid.documents?.length || 0} files</span>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -582,7 +656,10 @@ export default function BidDetailPage() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <Files className="h-8 w-8 mx-auto mb-3 opacity-50" />
-                  No documents attached
+                  <p className="mb-4">No documents attached</p>
+                  {bid.intakeSource === 'email' && (
+                    <SyncEmailDocumentsButton bidId={bid.id} onSynced={fetchBid} />
+                  )}
                 </div>
               )}
             </CardContent>

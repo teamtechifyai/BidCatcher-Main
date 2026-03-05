@@ -8,12 +8,67 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import {
   WebIntakeRequestSchema,
   EmailIntakeRequestSchema,
+  StartProcessingRequestSchema,
   type WebIntakeRequest,
   type EmailIntakeRequest,
 } from "@bid-catcher/config";
 import { intakeService } from "../services/intake.js";
 
 export async function intakeRoutes(server: FastifyInstance): Promise<void> {
+  /**
+   * POST /intake/start-processing
+   *
+   * Creates a minimal bid record with status "processing" when extraction begins.
+   * Bid appears in queue immediately; complete with POST /intake/web (pass processingBidId).
+   */
+  server.post(
+    "/start-processing",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parseResult = StartProcessingRequestSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        return reply.status(400).send({
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Invalid request body",
+            details: parseResult.error.errors,
+          },
+          meta: {
+            requestId: request.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+
+      try {
+        const result = await intakeService.startProcessingBid(parseResult.data, request.id);
+        return reply.status(201).send({
+          success: true,
+          data: result,
+          meta: {
+            requestId: request.id,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to start processing";
+        if (message.includes("not found")) {
+          return reply.status(404).send({
+            success: false,
+            error: { code: "CLIENT_NOT_FOUND", message },
+            meta: { requestId: request.id, timestamp: new Date().toISOString() },
+          });
+        }
+        request.log.error(error, "Failed to start processing bid");
+        return reply.status(500).send({
+          success: false,
+          error: { code: "INTERNAL_ERROR", message },
+          meta: { requestId: request.id, timestamp: new Date().toISOString() },
+        });
+      }
+    }
+  );
+
   /**
    * POST /intake/web
    *

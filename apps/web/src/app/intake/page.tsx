@@ -99,6 +99,8 @@ function IntakePageContent() {
   const [formData, setFormData] = useState<Record<string, string | number | boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string; bidId?: string } | null>(null);
+  /** Bid created when extraction starts - visible in queue as "Processing" */
+  const [processingBidId, setProcessingBidId] = useState<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -401,11 +403,31 @@ function IntakePageContent() {
     setExtracting(true);
     setExtractionError(null);
     setMergedResult(null);
+    setProcessingBidId(null);
 
     const results: ExtractionResult[] = [];
     const updatedPDFs = [...uploadedPDFs];
 
     try {
+      // Create processing bid so it appears in queue immediately (user can navigate away)
+      try {
+        const startRes = await fetch('/api/intake/start-processing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientId: selectedClientId,
+            projectName: 'Processing...',
+            filenames: uploadedPDFs.map(p => p.path),
+          }),
+        });
+        const startData = await startRes.json();
+        if (startData.success && startData.data?.bidId) {
+          setProcessingBidId(startData.data.bidId);
+        }
+      } catch (err) {
+        console.warn('[intake] Failed to create processing bid:', err);
+      }
+
       for (let i = 0; i < uploadedPDFs.length; i++) {
         setCurrentProcessingIndex(i);
         updatedPDFs[i] = { ...updatedPDFs[i], status: 'processing' };
@@ -488,6 +510,7 @@ function IntakePageContent() {
         confidenceScores: Object.keys(confidenceScores).length > 0 ? confidenceScores : undefined,
         extractedFields: extractedFieldsWithConfidence.length > 0 ? extractedFieldsWithConfidence : undefined,
         documentMetadata: mergedResult ? { fileCount: uploadedPDFs.length, filenames: uploadedPDFs.map(p => p.path), totalPages: mergedResult.pdfInfo.numPages, extractionMethod: mergedResult.processingInfo.method } : undefined,
+        ...(processingBidId && { processingBidId }),
       };
 
       // Debug logging - CRITICAL FOR DEBUGGING
@@ -511,6 +534,7 @@ function IntakePageContent() {
         setUploadedPDFs([]);
         setMergedResult(null);
         setFormData({});
+        setProcessingBidId(null);
       } else {
         let errorMessage = data.error?.message || 'Submission failed';
         if (data.error?.details) {
@@ -532,6 +556,7 @@ function IntakePageContent() {
     setFormData({});
     setExtractionError(null);
     setResult(null);
+    setProcessingBidId(null);
     if (folderInputRef.current) folderInputRef.current.value = '';
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -790,13 +815,20 @@ function IntakePageContent() {
 
           {/* Extract Button */}
           {uploadedPDFs.length > 0 && !mergedResult && (
-            <Button onClick={extractFromAllDocuments} disabled={extracting} className="w-full h-12 text-base gap-2">
-              {extracting ? (
-                <><Loader2 className="h-5 w-5 animate-spin" />Extracting {currentProcessingIndex + 1} of {uploadedPDFs.length}...</>
-              ) : (
-                <><Sparkles className="h-5 w-5" />Extract Fields from {uploadedPDFs.length} PDF{uploadedPDFs.length !== 1 ? 's' : ''}</>
+            <div className="space-y-2">
+              <Button onClick={extractFromAllDocuments} disabled={extracting} className="w-full h-12 text-base gap-2">
+                {extracting ? (
+                  <><Loader2 className="h-5 w-5 animate-spin" />Extracting {currentProcessingIndex + 1} of {uploadedPDFs.length}...</>
+                ) : (
+                  <><Sparkles className="h-5 w-5" />Extract Fields from {uploadedPDFs.length} PDF{uploadedPDFs.length !== 1 ? 's' : ''}</>
+                )}
+              </Button>
+              {extracting && processingBidId && (
+                <p className="text-center text-sm text-muted-foreground">
+                  Bid visible in queue. <Link href="/bids" className="text-primary hover:underline">View Bid Queue &rarr;</Link>
+                </p>
               )}
-            </Button>
+            </div>
           )}
 
           {/* Extraction Error */}

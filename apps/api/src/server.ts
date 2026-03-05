@@ -13,6 +13,9 @@ import { handoffRoutes } from "./routes/handoff.js";
 import { clientsRoutes } from "./routes/clients.js";
 import { extractionRoutes } from "./routes/extraction.js";
 import { incomingEmailsRoutes } from "./routes/incoming-emails.js";
+import { oreSamplesRoutes } from "./routes/ore-samples.js";
+import { analyticsRoutes } from "./routes/analytics.js";
+import { ghlRoutes } from "./routes/ghl.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { requestLogger } from "./middleware/request-logger.js";
 
@@ -37,6 +40,16 @@ export async function createServer() {
     bodyLimit: 52428800,
   });
 
+  // Store raw body for webhook verification (Resend uses Svix signing)
+  server.addContentTypeParser("application/json", { parseAs: "buffer" }, (req, body, done) => {
+    (req as { rawBody?: string }).rawBody = body.toString("utf8");
+    try {
+      done(null, JSON.parse(body.toString("utf8")));
+    } catch (e) {
+      done(e as Error, undefined);
+    }
+  });
+
   // Register plugins
   await server.register(cors, {
     origin: process.env.CORS_ORIGIN || true,
@@ -57,6 +70,9 @@ export async function createServer() {
   await server.register(handoffRoutes, { prefix: "/bids" }); // Handoff routes under /bids/:id/handoff/...
   await server.register(documentsRoutes, { prefix: "/documents" });
   await server.register(incomingEmailsRoutes, { prefix: "/incoming-emails" });
+  await server.register(oreSamplesRoutes, { prefix: "/clients" });
+  await server.register(analyticsRoutes, { prefix: "/clients" });
+  await server.register(ghlRoutes, { prefix: "/ghl" });
 
   return server;
 }

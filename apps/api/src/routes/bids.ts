@@ -8,6 +8,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { BidListQuerySchema, BidStatusSchema } from "@bid-catcher/config";
 import { bidsService } from "../services/bids.js";
+import { incomingEmailsService } from "../services/incoming-emails.js";
 
 // Request body schema for status updates
 const StatusUpdateSchema = z.object({
@@ -133,6 +134,55 @@ export async function bidsRoutes(server: FastifyInstance): Promise<void> {
             requestId: request.id,
             timestamp: new Date().toISOString(),
           },
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /bids/:id/sync-email-documents
+   *
+   * Sync bid_documents from source email (for bids created from email with no documents).
+   */
+  server.post<{ Params: { id: string } }>(
+    "/:id/sync-email-documents",
+    async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
+      const { id } = request.params;
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        return reply.status(400).send({
+          success: false,
+          error: { code: "INVALID_ID", message: "Invalid bid ID format" },
+          meta: { requestId: request.id, timestamp: new Date().toISOString() },
+        });
+      }
+
+      try {
+        const result = await incomingEmailsService.syncBidDocumentsFromEmail(id);
+
+        if (!result.success && result.created === 0) {
+          return reply.status(400).send({
+            success: false,
+            error: { code: "SYNC_FAILED", message: result.message },
+            meta: { requestId: request.id, timestamp: new Date().toISOString() },
+          });
+        }
+
+        return reply.status(200).send({
+          success: true,
+          data: result,
+          meta: { requestId: request.id, timestamp: new Date().toISOString() },
+        });
+      } catch (error) {
+        request.log.error(error, "Failed to sync email documents");
+        return reply.status(500).send({
+          success: false,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: error instanceof Error ? error.message : "Failed to sync documents",
+          },
+          meta: { requestId: request.id, timestamp: new Date().toISOString() },
         });
       }
     }

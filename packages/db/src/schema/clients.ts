@@ -36,6 +36,9 @@ export const clients = pgTable("clients", {
   /** Internal notes about this client */
   notes: text("notes"),
 
+  /** GHL contact ID for sync (GoHighLevel) */
+  ghlContactId: varchar("ghl_contact_id", { length: 100 }),
+
   // ----- Timestamps -----
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

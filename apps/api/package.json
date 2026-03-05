@@ -16,12 +16,16 @@
     "@bid-catcher/db": "workspace:*",
     "@bid-catcher/pdf-assist": "workspace:*",
     "@bid-catcher/scoring": "workspace:*",
-    "fastify": "^4.25.2",
     "@fastify/cors": "^8.5.0",
-    "zod": "^3.22.4",
+    "@langchain/core": "^0.3.0",
+    "@langchain/openai": "^0.3.0",
     "dotenv": "^16.3.1",
+    "fastify": "^4.25.2",
+    "nanoid": "^5.0.4",
     "pino": "^8.17.2",
-    "nanoid": "^5.0.4"
+    "resend": "^6.9.2",
+    "svix": "^1.85.0",
+    "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -31,4 +35,3 @@
     "typescript": "^5.3.3"
   }
 }
-

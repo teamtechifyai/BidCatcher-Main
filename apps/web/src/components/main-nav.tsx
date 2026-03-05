@@ -14,10 +14,16 @@ export function MainNav() {
   if (!isSupabaseConfigured) {
     const navItems = [
       { href: '/clients', label: 'Clients' },
+      { href: '/incoming-bids', label: 'Incoming Bids' },
       { href: '/intake', label: 'Submit Bid' },
       { href: '/bids', label: 'Bid Queue' },
       { href: '/api-docs', label: 'API' },
     ];
+    if (currentWorkspace) {
+      navItems.splice(1, 0, { href: `/workspace/${currentWorkspace.id}/config`, label: 'Configuration' });
+      navItems.splice(2, 0, { href: `/workspace/${currentWorkspace.id}/criteria-trainer`, label: 'Criteria Trainer' });
+      navItems.splice(3, 0, { href: `/workspace/${currentWorkspace.id}/analytics`, label: 'Market Grasp' });
+    }
     
     return (
       <nav className="flex items-center gap-6">
@@ -52,9 +58,12 @@ export function MainNav() {
     // Admin+ in workspace: Configuration 
     ...(isAdmin && currentWorkspace ? [
       { href: `/workspace/${currentWorkspace.id}/config`, label: 'Configuration' },
+      { href: `/workspace/${currentWorkspace.id}/criteria-trainer`, label: 'Criteria Trainer' },
     ] : []),
     // Only show if user has workspace access
     ...(hasWorkspaceAccess ? [
+      ...(currentWorkspace ? [{ href: `/workspace/${currentWorkspace.id}/analytics`, label: 'Market Grasp' }] : []),
+      { href: '/incoming-bids', label: 'Incoming Bids' },
       { href: '/intake', label: 'Submit Bid' },
       { href: '/bids', label: 'Bid Queue' },
     ] : []),

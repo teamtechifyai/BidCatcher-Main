@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ArrowLeft, Plus, X, ChevronUp, ChevronDown, CheckCircle2, AlertCircle, Eye, Save, GripVertical, Loader2, Lock } from 'lucide-react';
+import { ArrowLeft, Plus, X, ChevronUp, ChevronDown, CheckCircle2, AlertCircle, Eye, Save, GripVertical, Loader2, Lock, Sparkles, Target, BarChart3 } from 'lucide-react';
 
 interface IntakeField {
   key: string;
@@ -27,6 +28,8 @@ interface IntakeField {
   options?: string[];
   placeholder?: string;
   helpText?: string;
+  /** Description for AI extraction - helps the AI understand what this field means when processing documents */
+  aiDescription?: string;
 }
 
 interface ClientConfig {
@@ -57,6 +60,14 @@ interface ClientConfig {
     autoDisqualifyThreshold: number;
     alwaysRequireReview: boolean;
   };
+  strategicTags?: Array<{
+    id: string;
+    label: string;
+    matchType: 'contains' | 'regex' | 'value_band';
+    field: string;
+    value: string;
+  }>;
+  hoursSavedPerBid?: number;
 }
 
 interface Client {
@@ -94,6 +105,9 @@ export default function WorkspaceConfigPage() {
   // Track which field is expanded for editing options
   const [expandedField, setExpandedField] = useState<string | null>(null);
   const [newOption, setNewOption] = useState<string>('');
+  // Track which field has AI description expanded
+  const [expandedAiField, setExpandedAiField] = useState<string | null>(null);
+  const [newAllowedDomain, setNewAllowedDomain] = useState('');
 
   // Check access
   const hasAccess = isAdmin || workspaces.some(w => w.id === workspaceId);
@@ -311,6 +325,18 @@ export default function WorkspaceConfigPage() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild>
+              <Link href={`/workspace/${workspaceId}/criteria-trainer`}>
+                <Target className="h-4 w-4 mr-2" />
+                Criteria Trainer
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href={`/workspace/${workspaceId}/analytics`}>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Market Grasp
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
               <Link href={`/intake?clientId=${workspaceId}`}>
                 <Eye className="h-4 w-4 mr-2" />
                 Preview Form
@@ -357,7 +383,7 @@ export default function WorkspaceConfigPage() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Intake Form Fields</CardTitle>
-              <CardDescription>Configure the fields shown on the intake form</CardDescription>
+              <CardDescription>Configure the fields shown on the intake form. Use the AI button to add context that helps the AI extract each field from documents.</CardDescription>
             </div>
             <span className="text-sm text-muted-foreground">
               {config.intake.intakeFields.length} fields
@@ -451,6 +477,18 @@ export default function WorkspaceConfigPage() {
                         <ChevronDown className={`h-3 w-3 transition-transform ${expandedField === field.key ? 'rotate-180' : ''}`} />
                       </Button>
                     )}
+                    {/* AI description button - for document extraction context */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setExpandedAiField(expandedAiField === field.key ? null : field.key)}
+                      className={`gap-1 text-xs ${field.aiDescription ? 'border-primary/50 text-primary' : ''}`}
+                      title="Add context for AI when extracting this field from documents"
+                    >
+                      <Sparkles className="h-3 w-3" />
+                      {field.aiDescription ? 'AI context' : 'AI'}
+                      <ChevronDown className={`h-3 w-3 transition-transform ${expandedAiField === field.key ? 'rotate-180' : ''}`} />
+                    </Button>
                     {canEdit && (
                       <Button 
                         variant="ghost" 
@@ -463,6 +501,29 @@ export default function WorkspaceConfigPage() {
                     )}
                   </div>
                   
+                  {/* Expanded AI Description - helps AI understand field when processing documents */}
+                  {expandedAiField === field.key && (
+                    <div className="px-3 pb-3 pt-0 ml-14 border-t border-border/50 mt-2">
+                      <div className="bg-background rounded-lg p-4 space-y-2">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-primary" />
+                          AI Extraction Context
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Explain to the AI what this field means. This helps when processing documents (e.g., &quot;Look for project name in RFP subject line or first paragraph&quot;).
+                        </p>
+                        <Textarea
+                          value={field.aiDescription || ''}
+                          onChange={(e) => updateIntakeField(field.key, { aiDescription: e.target.value || undefined })}
+                          placeholder="e.g., Look for the project name in the RFP subject or cover letter..."
+                          disabled={!canEdit}
+                          rows={3}
+                          className="min-h-[80px]"
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   {/* Expanded Options Editor for Select Fields */}
                   {field.type === 'select' && expandedField === field.key && (
                     <div className="px-3 pb-3 pt-0 ml-14 border-t border-border/50 mt-2">
@@ -661,6 +722,84 @@ export default function WorkspaceConfigPage() {
               </div>
             </div>
           )}
+
+          {/* Allowed Email Domains (Resend Intake) */}
+          <div className="pt-6 border-t mt-6">
+            <Label className="text-sm font-medium block mb-2">Allowed Email Domains (Resend Intake)</Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Only emails from these domains will be processed. Leave empty to allow all senders.
+            </p>
+            <div className="space-y-2">
+              {(config.intake.allowedEmailDomains || []).map((domain) => (
+                <div key={domain} className="flex items-center gap-2">
+                  <code className="flex-1 px-3 py-2 rounded bg-muted text-sm">{domain}</code>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setConfig({
+                          ...config,
+                          intake: {
+                            ...config.intake,
+                            allowedEmailDomains: (config.intake.allowedEmailDomains || []).filter((d) => d !== domain),
+                          },
+                        })
+                      }
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {canEdit && (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="e.g. company.com"
+                    className="font-mono text-sm"
+                    value={newAllowedDomain}
+                    onChange={(e) => setNewAllowedDomain(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const value = newAllowedDomain.trim().toLowerCase();
+                        if (value && !(config.intake.allowedEmailDomains || []).includes(value)) {
+                          setConfig({
+                            ...config,
+                            intake: {
+                              ...config.intake,
+                              allowedEmailDomains: [...(config.intake.allowedEmailDomains || []), value],
+                            },
+                          });
+                          setNewAllowedDomain('');
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const value = newAllowedDomain.trim().toLowerCase();
+                      if (value && !(config.intake.allowedEmailDomains || []).includes(value)) {
+                        setConfig({
+                          ...config,
+                          intake: {
+                            ...config.intake,
+                            allowedEmailDomains: [...(config.intake.allowedEmailDomains || []), value],
+                          },
+                        });
+                        setNewAllowedDomain('');
+                      }
+                    }}
+                    disabled={!newAllowedDomain.trim()}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Domain
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -736,6 +875,157 @@ export default function WorkspaceConfigPage() {
                   Force MAYBE for all bids
                 </Label>
               </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Strategic Tags (Gold Nugget Alerts) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-amber-500" />
+            Strategic Tags (Gold Nugget Alerts)
+          </CardTitle>
+          <CardDescription>
+            Bids matching these tags get highlighted in Market Grasp. E.g. hospital, rail, repeat owner, specific geos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {(config.strategicTags || []).map((tag) => (
+              <div key={tag.id} className="flex items-center gap-4 p-3 rounded-lg border">
+                <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <Input
+                    placeholder="Label (e.g. Hospital)"
+                    value={tag.label}
+                    onChange={(e) => {
+                      const tags = [...(config.strategicTags || [])];
+                      const i = tags.findIndex((t) => t.id === tag.id);
+                      if (i >= 0) {
+                        tags[i] = { ...tags[i], label: e.target.value };
+                        setConfig({ ...config, strategicTags: tags });
+                      }
+                    }}
+                    disabled={!canEdit}
+                  />
+                  <Select
+                    value={tag.field}
+                    onValueChange={(v) => {
+                      const tags = [...(config.strategicTags || [])];
+                      const i = tags.findIndex((t) => t.id === tag.id);
+                      if (i >= 0) {
+                        tags[i] = { ...tags[i], field: v };
+                        setConfig({ ...config, strategicTags: tags });
+                      }
+                    }}
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scope_of_work">Scope / Sector</SelectItem>
+                      <SelectItem value="owner_name">Owner</SelectItem>
+                      <SelectItem value="project_location">Location</SelectItem>
+                      <SelectItem value="project_value_estimate">Project Value</SelectItem>
+                      <SelectItem value="project_name">Project Name</SelectItem>
+                      <SelectItem value="sender_company">Sender Company</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={tag.matchType}
+                    onValueChange={(v: 'contains' | 'regex' | 'value_band') => {
+                      const tags = [...(config.strategicTags || [])];
+                      const i = tags.findIndex((t) => t.id === tag.id);
+                      if (i >= 0) {
+                        tags[i] = { ...tags[i], matchType: v };
+                        setConfig({ ...config, strategicTags: tags });
+                      }
+                    }}
+                    disabled={!canEdit}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="contains">Contains</SelectItem>
+                      <SelectItem value="regex">Regex</SelectItem>
+                      <SelectItem value="value_band">Value Range</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder={tag.matchType === 'value_band' ? 'min:1000000,max:5000000' : 'value'}
+                    value={tag.value}
+                    onChange={(e) => {
+                      const tags = [...(config.strategicTags || [])];
+                      const i = tags.findIndex((t) => t.id === tag.id);
+                      if (i >= 0) {
+                        tags[i] = { ...tags[i], value: e.target.value };
+                        setConfig({ ...config, strategicTags: tags });
+                      }
+                    }}
+                    disabled={!canEdit}
+                  />
+                </div>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setConfig({
+                        ...config,
+                        strategicTags: (config.strategicTags || []).filter((t) => t.id !== tag.id),
+                      })
+                    }
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const tags = config.strategicTags || [];
+                  setConfig({
+                    ...config,
+                    strategicTags: [
+                      ...tags,
+                      {
+                        id: crypto.randomUUID(),
+                        label: '',
+                        matchType: 'contains' as const,
+                        field: 'scope_of_work',
+                        value: '',
+                      },
+                    ],
+                  });
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Strategic Tag
+              </Button>
+            )}
+            <div className="flex items-center gap-4 pt-2">
+              <Label className="text-sm">Hours saved per bid (for ROI estimate)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={10}
+                step={0.5}
+                value={config.hoursSavedPerBid ?? 1.5}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    hoursSavedPerBid: parseFloat(e.target.value) || 1.5,
+                  })
+                }
+                className="w-24"
+                disabled={!canEdit}
+              />
             </div>
           </div>
         </CardContent>

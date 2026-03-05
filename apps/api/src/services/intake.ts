@@ -10,9 +10,10 @@
  * - extracted_fields table
  */
 
-import type { WebIntakeRequest, EmailIntakeRequest, ClientConfig } from "@bid-catcher/config";
+import type { WebIntakeRequest, EmailIntakeRequest, ClientConfig, StartProcessingRequest } from "@bid-catcher/config";
 import { BID_STATUS, INTAKE_SOURCE } from "@bid-catcher/config";
-import { getDb, bids, bidDocuments, extractedFields, clients, eq } from "@bid-catcher/db";
+import { getDb, bids, bidDocuments, extractedFields, clients, eq, and } from "@bid-catcher/db";
+import { syncBidToGhl } from "./ghl-sync.js";
 
 // ----- Types -----
 
@@ -106,6 +107,42 @@ function generateContentHash(content: string): string {
 
 export const intakeService = {
   /**
+   * Start a processing bid - creates minimal bid record visible in queue during extraction.
+   * Call this when extraction begins; complete with processWebIntake (pass processingBidId).
+   */
+  async startProcessingBid(data: StartProcessingRequest, requestId: string): Promise<{ bidId: string }> {
+    const db = getDb();
+
+    // Verify client exists
+    const clientExists = await db
+      .select({ id: clients.id })
+      .from(clients)
+      .where(eq(clients.id, data.clientId))
+      .limit(1);
+
+    if (clientExists.length === 0) {
+      throw new Error(`Client with ID ${data.clientId} not found`);
+    }
+
+    const projectName = data.projectName?.trim() || (data.filenames?.[0] ? `${data.filenames[0]}...` : null) || "Processing...";
+
+    const [newBid] = await db
+      .insert(bids)
+      .values({
+        clientId: data.clientId,
+        intakeSource: INTAKE_SOURCE.WEB,
+        status: BID_STATUS.PROCESSING,
+        projectName: projectName.substring(0, 500),
+        senderEmail: "processing@bidcatcher.local",
+        rawPayload: { startProcessing: true, filenames: data.filenames || [] },
+      })
+      .returning({ id: bids.id });
+
+    console.log(`[${requestId}] ✓ Processing bid created: ${newBid.id}`);
+    return { bidId: newBid.id };
+  },
+
+  /**
    * Process a web form submission
    * 
    * IMPORTANT: This MUST insert into:
@@ -156,8 +193,7 @@ export const intakeService = {
     const fieldWarnings = validateIntakeFields(validationData, intakeFields, legacyRequiredFields);
     validationWarnings.push(...fieldWarnings);
 
-    // 3. INSERT INTO bids
-    console.log(`[${requestId}] Step 1: Creating bid record...`);
+    // 3. INSERT or UPDATE bid
     const rawPayload: Record<string, unknown> = {
       ...data,
       customFields: data.customFields || {},
@@ -165,13 +201,15 @@ export const intakeService = {
       documentMetadata: data.documentMetadata || null,
     };
 
+    const processingBidId = (data as WebIntakeRequest & { processingBidId?: string }).processingBidId;
     let newBidId: string;
-    try {
-      const [newBid] = await db
-        .insert(bids)
-        .values({
-          clientId: data.clientId,
-          intakeSource: INTAKE_SOURCE.WEB,
+
+    if (processingBidId) {
+      // Update existing processing bid
+      console.log(`[${requestId}] Step 1: Updating processing bid ${processingBidId}...`);
+      const [updated] = await db
+        .update(bids)
+        .set({
           status: BID_STATUS.NEW,
           projectName: data.projectName || null,
           senderEmail: data.senderEmail,
@@ -179,14 +217,41 @@ export const intakeService = {
           senderCompany: data.senderCompany || null,
           rawPayload: rawPayload,
           validationWarnings: validationWarnings.length > 0 ? validationWarnings : null,
+          updatedAt: new Date(),
         })
+        .where(and(eq(bids.id, processingBidId), eq(bids.status, BID_STATUS.PROCESSING)))
         .returning({ id: bids.id });
-      
-      newBidId = newBid.id;
-      console.log(`[${requestId}] ✓ Bid created: ${newBidId}`);
-    } catch (err) {
-      console.error(`[${requestId}] ✗ Failed to create bid:`, err);
-      throw new Error(`Failed to create bid: ${err instanceof Error ? err.message : 'Unknown error'}`);
+
+      if (!updated) {
+        throw new Error(`Processing bid ${processingBidId} not found or already completed`);
+      }
+      newBidId = updated.id;
+      console.log(`[${requestId}] ✓ Bid updated: ${newBidId}`);
+    } else {
+      // Create new bid
+      console.log(`[${requestId}] Step 1: Creating bid record...`);
+      try {
+        const [newBid] = await db
+          .insert(bids)
+          .values({
+            clientId: data.clientId,
+            intakeSource: INTAKE_SOURCE.WEB,
+            status: BID_STATUS.NEW,
+            projectName: data.projectName || null,
+            senderEmail: data.senderEmail,
+            senderName: data.senderName || null,
+            senderCompany: data.senderCompany || null,
+            rawPayload: rawPayload,
+            validationWarnings: validationWarnings.length > 0 ? validationWarnings : null,
+          })
+          .returning({ id: bids.id });
+
+        newBidId = newBid.id;
+        console.log(`[${requestId}] ✓ Bid created: ${newBidId}`);
+      } catch (err) {
+        console.error(`[${requestId}] ✗ Failed to create bid:`, err);
+        throw new Error(`Failed to create bid: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
     }
 
     // 4. INSERT INTO bid_documents
@@ -326,6 +391,39 @@ export const intakeService = {
       console.log(`[${requestId}] No extracted fields to store`);
     }
 
+    // Sync bid to GHL (non-blocking)
+    const clientForGhl = await db
+      .select({
+        id: clients.id,
+        name: clients.name,
+        contactEmail: clients.contactEmail,
+        contactName: clients.contactName,
+        phone: clients.phone,
+        ghlContactId: clients.ghlContactId,
+        config: clients.config,
+      })
+      .from(clients)
+      .where(eq(clients.id, data.clientId))
+      .limit(1);
+    if (clientForGhl[0]) {
+      const bidRow = await db.select().from(bids).where(eq(bids.id, newBidId)).limit(1);
+      if (bidRow[0]) {
+        syncBidToGhl(
+          {
+            id: bidRow[0].id,
+            clientId: bidRow[0].clientId,
+            projectName: bidRow[0].projectName,
+            status: bidRow[0].status,
+            senderEmail: bidRow[0].senderEmail,
+            senderName: bidRow[0].senderName,
+            senderCompany: bidRow[0].senderCompany,
+            ghlOpportunityId: bidRow[0].ghlOpportunityId,
+          },
+          clientForGhl[0]
+        ).catch((err) => console.warn(`[${requestId}] GHL sync failed:`, err));
+      }
+    }
+
     console.log(`\n========== [${requestId}] INTAKE COMPLETE ==========`);
     console.log(`[${requestId}] Bid ID: ${newBidId}`);
     console.log(`[${requestId}] Documents: ${documentCount}`);
@@ -421,6 +519,36 @@ export const intakeService = {
       .returning({ id: bids.id });
 
     console.log(`[${requestId}] Created bid ${newBid.id} from email intake`);
+
+    // Sync bid to GHL (non-blocking)
+    const clientForGhl = await db
+      .select({
+        id: clients.id,
+        name: clients.name,
+        contactEmail: clients.contactEmail,
+        contactName: clients.contactName,
+        phone: clients.phone,
+        ghlContactId: clients.ghlContactId,
+        config: clients.config,
+      })
+      .from(clients)
+      .where(eq(clients.id, data.clientId))
+      .limit(1);
+    if (clientForGhl[0]) {
+      syncBidToGhl(
+        {
+          id: newBid.id,
+          clientId: data.clientId,
+          projectName: data.subject || null,
+          status: BID_STATUS.NEW,
+          senderEmail: data.fromEmail,
+          senderName: data.fromName,
+          senderCompany: null,
+          ghlOpportunityId: null,
+        },
+        clientForGhl[0]
+      ).catch((err) => console.warn(`[${requestId}] GHL sync failed:`, err));
+    }
 
     // 5. Create document records for attachments
     let documentCount = 0;

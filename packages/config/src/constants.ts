@@ -17,6 +17,8 @@ export const SCORING = {
 
 /** Bid status values - locked enum for MVP */
 export const BID_STATUS = {
+  /** Bid is being processed (extraction in progress) - visible in queue */
+  PROCESSING: "processing",
   NEW: "new",
   IN_REVIEW: "in_review",
   QUALIFIED: "qualified",
@@ -25,6 +27,7 @@ export const BID_STATUS = {
 
 /** Valid status transitions */
 export const BID_STATUS_TRANSITIONS: Record<string, string[]> = {
+  processing: ["new"],
   new: ["in_review", "rejected"],
   in_review: ["qualified", "rejected"],
   qualified: [], // Terminal state

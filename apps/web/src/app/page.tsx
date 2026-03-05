@@ -214,7 +214,7 @@ export default function Home() {
             </div>
             <CardTitle className="text-xl">Incoming Bids</CardTitle>
             <CardDescription className="text-sm leading-relaxed">
-              View bid emails received via Gmail integration.
+              View bid emails received via Resend per-client intake.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">

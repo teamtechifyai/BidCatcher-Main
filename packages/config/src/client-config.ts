@@ -113,6 +113,13 @@ export const IntakeFieldSchema = z.object({
   /** Help text shown below field */
   helpText: z.string().optional(),
 
+  /**
+   * Description for AI extraction: helps the AI understand what this field means
+   * when processing documents. Use this to add context (e.g., "Look for the
+   * project name in the subject line or first paragraph of RFPs").
+   */
+  aiDescription: z.string().optional(),
+
   /** Which sources this field applies to */
   sourceHints: z.array(z.enum(["web", "email", "pdf"])).optional(),
 
@@ -226,6 +233,20 @@ export const ClientConfigSchema = z.object({
     })
     .optional(),
 
+  // ----- GoHighLevel Integration -----
+  ghl: z
+    .object({
+      /** Whether GHL sync is enabled for this client */
+      enabled: z.boolean().default(false),
+
+      /** GHL pipeline ID for opportunities (optional) */
+      pipelineId: z.string().optional(),
+
+      /** BidCatcher status → GHL pipeline stage ID mapping */
+      stageMapping: z.record(z.string(), z.string()).optional(),
+    })
+    .optional(),
+
   // ----- Notification Settings -----
   notifications: z
     .object({
@@ -234,6 +255,43 @@ export const ClientConfigSchema = z.object({
 
       /** Email addresses to notify when review is needed */
       reviewNeededEmails: z.array(z.string().email()).default([]),
+    })
+    .optional(),
+
+  // ----- Market Grasp / Gold Nugget Alerts -----
+  /** Strategic tags to highlight bids (e.g. hospital, rail, repeat owner, specific geos) */
+  strategicTags: z
+    .array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        /** Match type: contains (keyword), regex, or value_band (for numeric ranges) */
+        matchType: z.enum(["contains", "regex", "value_band"]),
+        /** Field to match: scope_of_work, owner_name, project_location, project_value_estimate, project_name, sender_company, etc. */
+        field: z.string(),
+        /** For contains/regex: the pattern. For value_band: "min:X,max:Y" */
+        value: z.string(),
+      })
+    )
+    .default([])
+    .optional(),
+
+  /** Hours of reading time saved per bid (for ROI estimate, e.g. 1.5) */
+  hoursSavedPerBid: z.number().min(0).max(10).default(1.5).optional(),
+
+  // ----- Criteria Trainer (Ore Samples) -----
+  criteriaTrainer: z
+    .object({
+      /** Target samples per bucket (10-20 recommended) */
+      targetPerBucket: z
+        .object({
+          yes: z.number().min(5).max(50).default(15),
+          maybe: z.number().min(5).max(50).default(15),
+          no: z.number().min(5).max(50).default(15),
+        })
+        .optional(),
+      /** Minimum samples before AI can propose criteria (e.g. 5 per bucket) */
+      minSamplesToAnalyze: z.number().min(3).max(20).default(5),
     })
     .optional(),
 });
@@ -329,6 +387,9 @@ export function createDefaultClientConfig(
       enabled: false,
       fieldMappings: [],
       autoPush: false,
+    },
+    ghl: {
+      enabled: true, // Sync to GHL by default when GHL is configured
     },
     notifications: {
       newBidEmails: [],

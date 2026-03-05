@@ -6,7 +6,7 @@
  */
 
 // Re-export drizzle-orm utilities for convenience
-export { eq, and, or, not, desc, asc, sql, inArray, isNull, isNotNull } from "drizzle-orm";
+export { eq, and, or, not, desc, asc, sql, inArray, isNull, isNotNull, gte, lte } from "drizzle-orm";
 
 export * from "./client.js";
 export * from "./schema/index.js";

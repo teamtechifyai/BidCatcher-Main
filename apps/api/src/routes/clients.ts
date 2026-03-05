@@ -8,6 +8,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { getDb, clients, eq } from "@bid-catcher/db";
 import { ClientConfigSchema, createDefaultClientConfig } from "@bid-catcher/config";
 import { randomUUID } from "crypto";
+import { syncClientToGhl } from "../services/ghl-sync.js";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -17,6 +18,8 @@ export async function clientsRoutes(server: FastifyInstance): Promise<void> {
    *
    * List all active clients
    */
+  const receivingDomain = process.env.RESEND_RECEIVING_DOMAIN || "";
+
   server.get("/", async (request: FastifyRequest, reply: FastifyReply) => {
     const db = getDb();
 
@@ -32,9 +35,14 @@ export async function clientsRoutes(server: FastifyInstance): Promise<void> {
         .from(clients)
         .where(eq(clients.active, true));
 
+      const data = allClients.map((c) => ({
+        ...c,
+        intakeEmailAddress: receivingDomain ? `intake-${c.slug}@${receivingDomain}` : null,
+      }));
+
       return reply.status(200).send({
         success: true,
-        data: allClients,
+        data,
         meta: {
           requestId: request.id,
           timestamp: new Date().toISOString(),
@@ -124,6 +132,7 @@ export async function clientsRoutes(server: FastifyInstance): Promise<void> {
           success: true,
           data: {
             ...client,
+            intakeEmailAddress: receivingDomain ? `intake-${client.slug}@${receivingDomain}` : null,
             createdAt: client.createdAt.toISOString(),
             updatedAt: client.updatedAt.toISOString(),
           },
@@ -357,6 +366,16 @@ export async function clientsRoutes(server: FastifyInstance): Promise<void> {
 
         console.log(`Created new client: ${newClient.id} (${newClient.name})`);
 
+        // Sync to GHL if enabled (non-blocking)
+        syncClientToGhl({
+          id: newClient.id,
+          name: newClient.name,
+          contactEmail,
+          contactName: contactName || null,
+          phone: phone || null,
+          config: defaultConfig,
+        }).catch((err) => request.log.warn(err, "GHL sync failed for new client"));
+
         return reply.status(201).send({
           success: true,
           data: {
@@ -473,6 +492,25 @@ export async function clientsRoutes(server: FastifyInstance): Promise<void> {
           .where(eq(clients.id, id));
 
         console.log(`Updated config for client: ${id}`);
+
+        // Sync to GHL if enabled (non-blocking)
+        const fullClient = await db
+          .select({
+            id: clients.id,
+            name: clients.name,
+            contactEmail: clients.contactEmail,
+            contactName: clients.contactName,
+            phone: clients.phone,
+            ghlContactId: clients.ghlContactId,
+          })
+          .from(clients)
+          .where(eq(clients.id, id))
+          .limit(1);
+        if (fullClient[0]) {
+          syncClientToGhl({ ...fullClient[0], config: validatedConfig }).catch((err) =>
+            request.log.warn(err, "GHL sync failed on config update")
+          );
+        }
 
         return reply.status(200).send({
           success: true,

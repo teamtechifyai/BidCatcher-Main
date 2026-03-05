@@ -15,6 +15,7 @@ import {
 // ----- Status & Enum Types -----
 
 export const BidStatusSchema = z.enum([
+  BID_STATUS.PROCESSING,
   BID_STATUS.NEW,
   BID_STATUS.IN_REVIEW,
   BID_STATUS.QUALIFIED,
@@ -93,8 +94,18 @@ export const WebIntakeRequestSchema = z.object({
     totalPages: z.number().optional(),
     extractionMethod: z.string().optional(),
   }).optional(),
+  /** If provided, update this existing processing bid instead of creating new */
+  processingBidId: z.string().uuid().optional(),
 });
 export type WebIntakeRequest = z.infer<typeof WebIntakeRequestSchema>;
+
+/** Start processing bid - creates minimal bid record visible in queue during extraction */
+export const StartProcessingRequestSchema = z.object({
+  clientId: z.string().uuid(),
+  projectName: z.string().max(500).optional(),
+  filenames: z.array(z.string()).optional(),
+});
+export type StartProcessingRequest = z.infer<typeof StartProcessingRequestSchema>;
 
 /** Email intake request payload (from email webhook) */
 export const EmailIntakeRequestSchema = z.object({

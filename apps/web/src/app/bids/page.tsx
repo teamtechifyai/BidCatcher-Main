@@ -220,6 +220,13 @@ export default function BidsPage() {
 
   function getStatusBadge(status: string) {
     switch (status) {
+      case 'processing':
+        return (
+          <Badge variant="outline" className="gap-1 border-amber-500/50 text-amber-600 dark:text-amber-400">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Processing
+          </Badge>
+        );
       case 'new':
         return <Badge variant="info">New</Badge>;
       case 'in_review':
@@ -346,6 +353,7 @@ export default function BidsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="processing">Processing</SelectItem>
                 <SelectItem value="new">New</SelectItem>
                 <SelectItem value="in_review">In Review</SelectItem>
                 <SelectItem value="qualified">Qualified</SelectItem>

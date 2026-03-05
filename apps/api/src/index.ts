@@ -14,21 +14,30 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env from project root (try multiple paths)
+// Monorepo root: from apps/api/src or apps/api/dist, go up to repo root
+const monorepoRoot = resolve(__dirname, "../../..");
+const rootEnv = resolve(monorepoRoot, ".env");
+
+// Load .env - prefer monorepo root first (where .env lives), then cwd-based
 const envPaths = [
-  resolve(process.cwd(), ".env"),           // Running from root
-  resolve(process.cwd(), "../../.env"),     // Running from apps/api
-  resolve(__dirname, "../../../.env"),      // Relative to compiled file
-  resolve(__dirname, "../../.env"),         // Relative to source in apps/api/src
+  rootEnv,                                    // Monorepo root (reliable regardless of cwd)
+  resolve(process.cwd(), ".env"),             // Running from root
+  resolve(process.cwd(), "../../.env"),        // Running from apps/api
+  resolve(__dirname, "../../../.env"),        // Fallback: from dist
 ];
 
+let loadedPath: string | null = null;
 for (const envPath of envPaths) {
   if (existsSync(envPath)) {
     config({ path: envPath });
-    console.log(`Loaded .env from: ${envPath}`);
+    loadedPath = envPath;
     break;
   }
 }
+
+console.log(`[env] cwd=${process.cwd()}`);
+console.log(`[env] Loaded .env from: ${loadedPath ?? "NONE (no .env found)"}`);
+console.log(`[env] RESEND_API_KEY: ${process.env.RESEND_API_KEY ? "***configured***" : "NOT SET"}`);
 
 import { createServer } from "./server.js";
 import { initializeDb } from "@bid-catcher/db";

@@ -89,8 +89,9 @@ function buildDynamicExtractionPrompt(
     const typeHint = getTypeHint(field.type);
     const requiredTag = field.required ? " [REQUIRED]" : "";
     const optionsHint = field.options ? ` (options: ${field.options.join(", ")})` : "";
+    const aiContext = field.aiDescription ? ` — ${field.aiDescription}` : "";
     
-    return `- ${field.key} (${typeHint}): ${field.label}${requiredTag}${optionsHint}`;
+    return `- ${field.key} (${typeHint}): ${field.label}${requiredTag}${optionsHint}${aiContext}`;
   });
 
   const contextInfo = filename ? `\nDocument: ${filename}` : "";

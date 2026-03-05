@@ -22,7 +22,8 @@
     "generate": "dotenv -e ../../.env -- drizzle-kit generate:pg",
     "migrate": "dotenv -e ../../.env -- drizzle-kit migrate",
     "push": "dotenv -e ../../.env -- drizzle-kit push:pg",
-    "studio": "dotenv -e ../../.env -- drizzle-kit studio"
+    "studio": "dotenv -e ../../.env -- drizzle-kit studio",
+    "migrate:content": "dotenv -e ../../.env -- node scripts/run-content-migration.js"
   },
   "dependencies": {
     "drizzle-orm": "^0.29.3",

@@ -21,5 +21,7 @@ export * from "./decisions.js";
 export * from "./jobtread-handoffs.js";
 export * from "./users.js";
 export * from "./incoming-emails.js";
+export * from "./ore-samples.js";
+export * from "./ghl-sync-state.js";
 export * from "./relations.js";
 

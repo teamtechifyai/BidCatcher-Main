@@ -35,7 +35,7 @@ export const pdfExtractionService = {
   async extractDocument(input: ExtractDocumentInput): Promise<ExtractDocumentResult> {
     const db = getDb();
 
-    // 1. Get document record
+    // 1. Get document record (include content for extraction)
     const documents = await db
       .select({
         id: bidDocuments.id,
@@ -43,6 +43,7 @@ export const pdfExtractionService = {
         filename: bidDocuments.filename,
         contentType: bidDocuments.contentType,
         processingStatus: bidDocuments.processingStatus,
+        content: bidDocuments.content,
       })
       .from(bidDocuments)
       .where(eq(bidDocuments.id, input.documentId))
@@ -74,12 +75,11 @@ export const pdfExtractionService = {
       .where(eq(bidDocuments.id, input.documentId));
 
     try {
-      // 4. Call PDF extraction service
-      // Note: In production, we'd fetch actual content from storage
+      // 4. Call PDF extraction service (use content from bid_documents when available)
       const extractionInput: ExtractionInput = {
         documentId: input.documentId,
         bidId,
-        content: "", // Would be populated from document storage
+        content: doc.content || "",
         contentType: "base64",
       };
 

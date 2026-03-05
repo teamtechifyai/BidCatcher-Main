@@ -62,6 +62,9 @@ export const bids = pgTable(
     /** When the bid was received by the system */
     receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
 
+    /** GHL opportunity ID for sync (GoHighLevel) */
+    ghlOpportunityId: varchar("ghl_opportunity_id", { length: 100 }),
+
     // ----- Timestamps -----
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

@@ -8,6 +8,7 @@
 import type { BidListQuery, ClientConfig, BidStatus } from "@bid-catcher/config";
 import { BID_STATUS_TRANSITIONS } from "@bid-catcher/config";
 import { getDb, bids, bidDocuments, clients, extractedFields, goNoGoDecisions, decisionOverrides, eq, and, desc, sql, inArray } from "@bid-catcher/db";
+import { syncBidToGhl, removeBidFromGhl, shouldSkipPushForBid } from "./ghl-sync.js";
 
 // ----- Types -----
 
@@ -592,6 +593,42 @@ export const bidsService = {
       `[${updatedBy || "system"}] Updated bid ${id} status: ${currentStatus} -> ${newStatus}`
     );
 
+    // Sync to GHL (non-blocking, skip if last change came from GHL webhook)
+    const skipPush = await shouldSkipPushForBid(id);
+    if (!skipPush) {
+      const bidRow = await db.select().from(bids).where(eq(bids.id, id)).limit(1);
+      const clientRow = bidRow[0]
+        ? await db
+            .select({
+              id: clients.id,
+              name: clients.name,
+              contactEmail: clients.contactEmail,
+              contactName: clients.contactName,
+              phone: clients.phone,
+              ghlContactId: clients.ghlContactId,
+              config: clients.config,
+            })
+            .from(clients)
+            .where(eq(clients.id, bidRow[0].clientId))
+            .limit(1)
+        : [];
+      if (bidRow[0] && clientRow[0]) {
+        syncBidToGhl(
+          {
+            id: bidRow[0].id,
+            clientId: bidRow[0].clientId,
+            projectName: bidRow[0].projectName,
+            status: bidRow[0].status,
+            senderEmail: bidRow[0].senderEmail,
+            senderName: bidRow[0].senderName,
+            senderCompany: bidRow[0].senderCompany,
+            ghlOpportunityId: bidRow[0].ghlOpportunityId,
+          },
+          clientRow[0]
+        ).catch((err) => console.warn("[bids] GHL sync failed on status update:", err));
+      }
+    }
+
     return {
       success: true,
       bidId: id,
@@ -610,7 +647,7 @@ export const bidsService = {
 
     // Check if bid exists
     const existing = await db
-      .select({ id: bids.id, projectName: bids.projectName })
+      .select({ id: bids.id, projectName: bids.projectName, ghlOpportunityId: bids.ghlOpportunityId })
       .from(bids)
       .where(eq(bids.id, id))
       .limit(1);
@@ -624,6 +661,9 @@ export const bidsService = {
     }
 
     const projectName = existing[0].projectName || "Untitled";
+
+    // Remove from GHL before deleting (non-blocking)
+    removeBidFromGhl(existing[0]).catch((err) => console.warn("[bids] GHL delete opportunity failed:", err));
 
     // Delete the bid (cascading deletes handle related data)
     await db.delete(bids).where(eq(bids.id, id));
