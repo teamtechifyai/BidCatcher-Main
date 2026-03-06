@@ -13,7 +13,6 @@ import {
   createOpportunity,
   updateOpportunity,
   deleteOpportunity,
-  type ClientForGhl,
   type BidForGhl,
 } from "./ghl.js";
 

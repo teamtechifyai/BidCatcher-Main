@@ -164,7 +164,7 @@ export async function incomingEmailsRoutes(server: FastifyInstance): Promise<voi
 
         const apiList = await fetchAttachmentList(resendEmailId);
         let firstWithUrl = apiList.find((a) => a.download_url);
-        let retrieveByIdResult: { tried: boolean; attachmentId?: string; ok?: boolean; error?: string } = { tried: false };
+        let retrieveByIdResult: { tried: boolean; attachmentId?: string; ok?: boolean; error?: string; filename?: string; resendApi?: { status?: number; bodyPreview?: string } } = { tried: false };
 
         // When list returns empty, try Retrieve-by-ID using webhook attachment IDs
         let rawStructureDebug: Record<string, unknown> = {};

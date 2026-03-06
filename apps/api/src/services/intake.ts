@@ -542,7 +542,7 @@ export const intakeService = {
           projectName: data.subject || null,
           status: BID_STATUS.NEW,
           senderEmail: data.fromEmail,
-          senderName: data.fromName,
+          senderName: data.fromName ?? null,
           senderCompany: null,
           ghlOpportunityId: null,
         },

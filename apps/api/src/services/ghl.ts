@@ -145,7 +145,7 @@ export async function upsertContact(client: ClientForGhl): Promise<UpsertContact
       body: JSON.stringify(body),
     });
 
-    const data = await res.json().catch(() => ({})) as { contact?: { id?: string }; message?: string };
+    const data = await res.json().catch(() => ({})) as { contact?: { id?: string }; contactId?: string; message?: string };
 
     if (!res.ok) {
       const msg = data?.message || res.statusText;
@@ -234,7 +234,7 @@ export async function createOpportunity(
       body: JSON.stringify(body),
     });
 
-    const data = await res.json().catch(() => ({})) as { opportunity?: { id?: string }; id?: string; message?: string };
+    const data = await res.json().catch(() => ({})) as { opportunity?: { id?: string }; id?: string; opportunityId?: string; message?: string };
 
     if (!res.ok) {
       const msg = data?.message || res.statusText;

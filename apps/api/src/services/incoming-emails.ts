@@ -10,7 +10,6 @@ import { createHash } from "crypto";
 import { getDb, incomingBidEmails, bids, bidDocuments, clients, eq, desc, sql, and, inArray } from "@bid-catcher/db";
 import {
   parseIntakeAddressFromTo,
-  parseClientSlugFromToAddress,
   fetchEmailContent,
   fetchAttachmentList,
   fetchAttachmentById,

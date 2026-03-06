@@ -4,6 +4,17 @@ This guide walks through deploying the BidCatcher monorepo (API + Web) to Railwa
 
 ---
 
+## Quick Fix: Backend Build Failing
+
+If you see `Cannot find module '@bid-catcher/db'`:
+
+1. **Root Directory** must be **empty** (do not set to `apps/api`)
+2. **Build Command** must be: `pnpm install && pnpm --filter '@bid-catcher/api...' build`
+
+The `...` ensures workspace packages (db, config, pdf-assist, scoring) are built before the API.
+
+---
+
 ## Architecture
 
 - **API** (`apps/api`): Fastify backend on port 3000 (or `$PORT`)
@@ -42,10 +53,12 @@ You'll create **two Railway services**: one for the API and one for the Web app.
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | *(leave empty – use repo root)* |
-| **Build Command** | `pnpm install && pnpm --filter @bid-catcher/api build` |
+| **Root Directory** | *(leave empty – must use repo root for monorepo)* |
+| **Build Command** | `pnpm install && pnpm --filter '@bid-catcher/api...' build` |
 | **Start Command** | `pnpm --filter @bid-catcher/api start` |
 | **Watch Paths** | `apps/api,packages/*` |
+
+**Important:** The `...` in the filter builds workspace dependencies (db, config, pdf-assist, scoring) first. Do **not** set Root Directory to `apps/api` – the full monorepo is required.
 
 ### API Environment Variables
 
@@ -82,8 +95,8 @@ Add these in **Variables**:
 
 | Setting | Value |
 |---------|-------|
-| **Root Directory** | *(leave empty)* |
-| **Build Command** | `pnpm install && pnpm --filter @bid-catcher/web build` |
+| **Root Directory** | *(leave empty – must use repo root)* |
+| **Build Command** | `pnpm install && pnpm --filter '@bid-catcher/web...' build` |
 | **Start Command** | `pnpm --filter @bid-catcher/web start` |
 | **Watch Paths** | `apps/web,packages/*` |
 
@@ -133,6 +146,14 @@ If you use Resend for incoming email:
 ---
 
 ## Troubleshooting
+
+### "Cannot find module '@bid-catcher/db'" or workspace packages
+
+**Cause:** Workspace packages (db, config, pdf-assist, scoring) must be built before the API. Also, Root Directory must be empty.
+
+**Fix:**
+1. Ensure **Root Directory** is empty (not `apps/api`)
+2. Use this build command: `pnpm install && pnpm --filter '@bid-catcher/api...' build` (note the `...` to build dependencies)
 
 ### Build fails with "pnpm: command not found"
 
