@@ -36,6 +36,13 @@ import {
 import { RefreshCw, Trash2, X, ExternalLink, Filter, FileText, Building2, Loader2, ChevronDown, ChevronUp, Brain, Zap, Quote } from 'lucide-react';
 import { WorkspaceIndicator } from '@/components/workspace-switcher';
 
+/** Format AI confidence for display (handles both 0-1 and 0-100 stored values) */
+function formatAiConfidence(confidence: number | undefined | null): number {
+  const c = confidence ?? 0;
+  const pct = c > 1 ? c : c * 100;
+  return Math.min(100, Math.max(0, Math.round(pct)));
+}
+
 interface Citation {
   documentId: string | null;
   documentFilename: string | null;
@@ -710,7 +717,7 @@ export default function BidsPage() {
                                       </div>
                                       {bid.latestDecision.aiEvaluation.confidence && (
                                         <Badge variant="outline" className="text-xs border-purple-500/30 text-purple-400">
-                                          {Math.round(bid.latestDecision.aiEvaluation.confidence * 100)}% confident
+                                          {formatAiConfidence(bid.latestDecision.aiEvaluation.confidence)}% confident
                                         </Badge>
                                       )}
                                     </div>

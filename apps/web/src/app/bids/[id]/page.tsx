@@ -40,6 +40,18 @@ import {
   Loader2
 } from 'lucide-react';
 
+/** Format AI confidence for display (handles both 0-1 and 0-100 stored values) */
+function formatAiConfidence(confidence: number | undefined | null): number {
+  const c = confidence ?? 0;
+  const pct = c > 1 ? c : c * 100;
+  return Math.min(100, Math.max(0, Math.round(pct)));
+}
+
+/** Get risk factors from AI evaluation (handles both riskFactors and riskAssessment.factors) */
+function getAiRiskFactors(ai: { riskFactors?: string[]; riskAssessment?: { factors: string[] } } | undefined): string[] {
+  return ai?.riskFactors ?? ai?.riskAssessment?.factors ?? [];
+}
+
 function SyncEmailDocumentsButton({ bidId, onSynced }: { bidId: string; onSynced: () => void }) {
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -706,14 +718,14 @@ export default function BidDetailPage() {
                       <div className="flex items-center gap-2">
                         <Brain className="h-4 w-4 text-purple-400" />
                         <h4 className="text-sm font-medium">AI Analysis</h4>
-                        <Badge variant="outline" className="text-xs">{Math.round(latestDecision.aiEvaluation.confidence * 100)}% confidence</Badge>
+                        <Badge variant="outline" className="text-xs">{formatAiConfidence(latestDecision.aiEvaluation.confidence)}% confidence</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">{latestDecision.aiEvaluation.reasoning}</p>
-                      {latestDecision.aiEvaluation.riskFactors?.length > 0 && (
+                      {getAiRiskFactors(latestDecision.aiEvaluation).length > 0 && (
                         <div>
                           <p className="text-xs font-medium text-muted-foreground mb-1">Risk Factors:</p>
                           <div className="flex flex-wrap gap-1">
-                            {latestDecision.aiEvaluation.riskFactors.map((risk, i) => (
+                            {getAiRiskFactors(latestDecision.aiEvaluation).map((risk, i) => (
                               <Badge key={i} variant="outline" className="text-xs">{risk}</Badge>
                             ))}
                           </div>

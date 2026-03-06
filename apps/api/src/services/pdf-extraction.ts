@@ -2,11 +2,13 @@
  * PDF Extraction Service
  *
  * Orchestrates PDF extraction and stores results in the database.
+ * Uses extractFromDocument with client config (same as direct upload) - NOT the legacy extractFieldsFromPdf.
  * IMPORTANT: Extracted data is NEVER overwritten - always appended.
  */
 
-import { extractFieldsFromPdf, type ExtractionInput } from "@bid-catcher/pdf-assist";
-import { getDb, bidDocuments, extractedFields, eq, and, sql } from "@bid-catcher/db";
+import { extractFromDocument } from "@bid-catcher/pdf-assist";
+import { ClientConfigSchema } from "@bid-catcher/config";
+import { getDb, bidDocuments, extractedFields, bids, clients, eq, and, sql } from "@bid-catcher/db";
 
 // ----- Types -----
 
@@ -30,6 +32,7 @@ interface ExtractDocumentResult {
 export const pdfExtractionService = {
   /**
    * Extract fields from a document and store results
+   * Uses extractFromDocument with client config (same as direct upload) - client's intake fields only.
    * Creates new extracted_fields records (never overwrites)
    */
   async extractDocument(input: ExtractDocumentInput): Promise<ExtractDocumentResult> {
@@ -54,10 +57,36 @@ export const pdfExtractionService = {
     }
 
     const doc = documents[0];
-    // Use bidId from document if not provided
     const bidId = input.bidId || doc.bidId;
 
-    // 2. Check if already processed (we'll create a new version)
+    // 2. Get client config for extraction (same fields as direct upload)
+    const [bidRow] = await db
+      .select({ clientId: bids.clientId })
+      .from(bids)
+      .where(eq(bids.id, bidId))
+      .limit(1);
+
+    if (!bidRow) {
+      throw new Error(`Bid ${bidId} not found`);
+    }
+
+    const [clientRow] = await db
+      .select({ config: clients.config })
+      .from(clients)
+      .where(eq(clients.id, bidRow.clientId))
+      .limit(1);
+
+    let clientIntakeFields: Parameters<typeof extractFromDocument>[0]["clientIntakeFields"] = [];
+    if (clientRow?.config) {
+      try {
+        const parsed = ClientConfigSchema.parse(clientRow.config);
+        clientIntakeFields = parsed.intake?.intakeFields ?? [];
+      } catch {
+        console.warn(`[pdf-extraction] Failed to parse client config for bid ${bidId}, using defaults`);
+      }
+    }
+
+    // 3. Check if already processed (we'll create a new version)
     const existingExtractions = await db
       .select({ maxVersion: sql<number>`COALESCE(MAX(extraction_version), 0)::int` })
       .from(extractedFields)
@@ -65,7 +94,7 @@ export const pdfExtractionService = {
 
     const newVersion = (existingExtractions[0]?.maxVersion || 0) + 1;
 
-    // 3. Update document status to processing
+    // 4. Update document status to processing
     await db
       .update(bidDocuments)
       .set({
@@ -75,37 +104,40 @@ export const pdfExtractionService = {
       .where(eq(bidDocuments.id, input.documentId));
 
     try {
-      // 4. Call PDF extraction service (use content from bid_documents when available)
-      const extractionInput: ExtractionInput = {
-        documentId: input.documentId,
-        bidId,
-        content: doc.content || "",
-        contentType: "base64",
-      };
+      // 5. Call extractFromDocument (same as direct upload - uses client config)
+      const result = await extractFromDocument({
+        documentBase64: doc.content || "",
+        filename: doc.filename || "document.pdf",
+        clientId: bidRow.clientId,
+        clientIntakeFields,
+        useAI: true,
+      });
 
-      const result = await extractFieldsFromPdf(extractionInput);
+      if (!result.success) {
+        throw new Error(result.error || "Extraction failed");
+      }
 
-      // 5. Store extracted fields (append-only, never overwrite)
-      const fieldsToInsert = result.fields.map((field: typeof result.fields[0]) => ({
-        documentId: input.documentId,
-        bidId,
-        signalId: field.fieldName,
-        extractedValue: typeof field.value === "boolean" 
-          ? String(field.value) 
-          : field.value,
-        rawValue: field.rawSnippet,
-        confidence: field.confidence,
-        extractionMethod: field.source,
-        pageNumber: field.pageNumber,
-        extractionVersion: newVersion,
-        sourceLocation: null,
-      }));
+      // 6. Store extracted fields (append-only, never overwrite)
+      const fieldsToInsert = Object.entries(result.extractedFields)
+        .filter(([, value]) => value !== null && value !== undefined && value !== "")
+        .map(([signalId, value]) => ({
+          documentId: input.documentId,
+          bidId,
+          signalId,
+          extractedValue: value === null || value === undefined ? null : String(value),
+          rawValue: null,
+          confidence: result.confidenceScores[signalId] ?? 0.8,
+          extractionMethod: result.processingInfo.method,
+          pageNumber: null,
+          extractionVersion: newVersion,
+          sourceLocation: null,
+        }));
 
       if (fieldsToInsert.length > 0) {
         await db.insert(extractedFields).values(fieldsToInsert);
       }
 
-      // 6. Update document status to completed
+      // 7. Update document status to completed
       await db
         .update(bidDocuments)
         .set({
@@ -116,7 +148,7 @@ export const pdfExtractionService = {
         .where(eq(bidDocuments.id, input.documentId));
 
       console.log(
-        `Extracted ${fieldsToInsert.length} fields from document ${input.documentId} (version ${newVersion})`
+        `[pdf-extraction] Extracted ${fieldsToInsert.length} fields from document ${input.documentId} (version ${newVersion}, client config: ${clientIntakeFields.length} fields)`
       );
 
       return {
@@ -125,7 +157,7 @@ export const pdfExtractionService = {
         bidId,
         fieldsExtracted: fieldsToInsert.length,
         extractionVersion: newVersion,
-        warnings: result.metadata.warnings,
+        warnings: result.processingInfo.warnings,
         error: null,
       };
     } catch (error) {

@@ -59,9 +59,29 @@ export async function scoreBid(
   );
 
   // Calculate totals from rule-based scoring
-  const totalScore = criteriaResults.reduce((sum, r) => sum + r.weightedScore, 0);
+  let totalScore = criteriaResults.reduce((sum, r) => sum + r.weightedScore, 0);
   const maxScore = criteriaResults.reduce((sum, r) => sum + r.weightedMaxScore, 0);
-  const scorePercentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
+
+  // Data completeness bonus: prevent 0 when all/most fields are filled
+  const filledCount = Object.values(extractedFields).filter(
+    (f) => f.value !== null && f.value !== undefined && String(f.value).trim() !== ""
+  ).length;
+  const COMPLETENESS_MAX_BONUS = 25; // Up to 25% from having rich data
+  const completenessBonus =
+    filledCount >= 3
+      ? Math.min(COMPLETENESS_MAX_BONUS, (filledCount / 10) * COMPLETENESS_MAX_BONUS)
+      : 0;
+  if (completenessBonus > 0 && totalScore === 0) {
+    totalScore = (completenessBonus / 100) * maxScore;
+    warnings.push(
+      `Data completeness bonus: +${completenessBonus.toFixed(0)}% (${filledCount} fields filled, criteria have no matching rules)`
+    );
+  }
+
+  const scorePercentage = Math.min(
+    100,
+    maxScore > 0 ? (totalScore / maxScore) * 100 : completenessBonus
+  );
 
   // Determine rule-based outcome
   const ruleOutcome = determineOutcome(
@@ -92,7 +112,7 @@ export async function scoreBid(
     aiEvaluation = {
       success: aiResult.success,
       recommendation: aiResult.recommendation,
-      confidence: aiResult.confidence,
+      confidence: Math.min(1, Math.max(0, aiResult.confidence / 100)),
       reasoning: aiResult.reasoning,
       keyFactors: aiResult.keyFactors,
       riskAssessment: aiResult.riskAssessment,
@@ -177,7 +197,7 @@ export async function scoreBidWithAIOnly(
   const aiEvaluation: AIEvaluationEmbedded = {
     success: aiResult.success,
     recommendation: aiResult.recommendation,
-    confidence: aiResult.confidence,
+    confidence: Math.min(1, Math.max(0, aiResult.confidence / 100)),
     reasoning: aiResult.reasoning,
     keyFactors: aiResult.keyFactors,
     riskAssessment: aiResult.riskAssessment,
@@ -216,6 +236,15 @@ export async function scoreBidWithAIOnly(
   };
 }
 
+/** Maps criterion IDs to likely signal IDs when criteria lack explicit dependsOnSignals */
+const CRITERION_TO_SIGNALS: Record<string, string[]> = {
+  project_in_service_area: ["project_location"],
+  timeline_feasible: ["bid_due_date", "start_date", "completion_date", "project_duration"],
+  project_size_fit: ["project_value_estimate"],
+  bonding_capacity: ["bond_required"],
+  relationship_score: ["general_contractor", "owner_name"],
+};
+
 /**
  * Evaluate a single criterion against extracted fields
  */
@@ -228,8 +257,11 @@ function evaluateCriterion(
   let evaluated = false;
   let score = 0;
 
-  // Check if we have the required signals
-  const dependentSignals = criterion.dependsOnSignals || [];
+  // Use explicit dependsOnSignals, or infer from criterion ID when absent
+  let dependentSignals = criterion.dependsOnSignals || [];
+  if (dependentSignals.length === 0 && CRITERION_TO_SIGNALS[criterion.criterionId]) {
+    dependentSignals = CRITERION_TO_SIGNALS[criterion.criterionId];
+  }
 
   if (dependentSignals.length > 0) {
     // Check which signals we have
@@ -252,6 +284,17 @@ function evaluateCriterion(
           }
         }
       }
+    } else if (signalsUsed.length > 0 && (!criterion.rules || criterion.rules.length === 0)) {
+      // No explicit rules: award partial points when relevant data exists
+      const pointsPerSignal = criterion.maxPoints / Math.max(1, dependentSignals.length);
+      for (const signalId of dependentSignals) {
+        const field = extractedFields[signalId];
+        if (field && field.value !== null && String(field.value).trim() !== "") {
+          score += pointsPerSignal;
+          evaluated = true;
+        }
+      }
+      score = Math.min(score, criterion.maxPoints);
     } else if (signalsUsed.length === 0) {
       // No signals available - can't evaluate
       warnings.push(

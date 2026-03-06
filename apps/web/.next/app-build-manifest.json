@@ -1,9 +1,9 @@
 {
   "pages": {
-    "/bids/page": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/bids/page.js"
+      "static/chunks/app/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -16,11 +16,6 @@
       "static/chunks/main-app.js",
       "static/chunks/app/workspace/[id]/config/page.js"
     ],
-    "/clients/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/clients/page.js"
-    ],
     "/incoming-bids/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
@@ -31,10 +26,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/intake/page.js"
     ],
-    "/workspace/[id]/analytics/page": [
+    "/bids/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/workspace/[id]/analytics/page.js"
+      "static/chunks/app/bids/page.js"
+    ],
+    "/bids/[id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/bids/[id]/page.js"
     ]
   }
 }

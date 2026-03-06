@@ -102,20 +102,97 @@ interface DecisionHistory {
 
 // ----- Helper Functions -----
 
+/** Aliases so rules can match regardless of key format (intake vs PDF extraction) */
+const FIELD_KEY_ALIASES: [string, string[]][] = [
+  ["project_name", ["projectName"]],
+  ["project_location", ["projectLocation", "location"]],
+  ["project_value_estimate", ["estimatedValue", "project_value"]],
+  ["bid_due_date", ["bidDueDate"]],
+  ["start_date", ["construction_start", "startDate"]],
+  ["completion_date", ["completionDate"]],
+  ["project_duration", ["construction_duration", "duration"]],
+  ["general_contractor", ["gc_name", "generalContractor"]],
+  ["owner_name", ["client_name", "ownerName"]],
+  ["bond_required", ["bondRequired"]],
+];
+
 /**
  * Build extracted field data map from database records
+ * Normalizes confidence to 0-1 scale (handles both 0-1 and 0-100 from different sources)
  */
 function buildExtractedFieldData(
   fields: Array<{ signalId: string; extractedValue: string | null; confidence: number | null }>
 ): ExtractedFieldData {
   const data: ExtractedFieldData = {};
   for (const field of fields) {
+    let conf = field.confidence ?? 0;
+    if (conf > 1) conf = conf / 100;
     data[field.signalId] = {
       value: field.extractedValue,
-      confidence: field.confidence ?? 0,
+      confidence: Math.min(1, Math.max(0, conf)),
     };
   }
-  return data;
+  return applyFieldAliases(data);
+}
+
+/**
+ * Add canonical key aliases so scoring rules match regardless of intake vs PDF key format
+ */
+function applyFieldAliases(data: ExtractedFieldData): ExtractedFieldData {
+  const result = { ...data };
+  for (const [canonical, aliases] of FIELD_KEY_ALIASES) {
+    const allKeys = [canonical, ...aliases];
+    const entry = allKeys
+      .map((k) => result[k])
+      .find((e) => e && e.value != null && String(e.value).trim() !== "");
+    if (entry) {
+      for (const k of allKeys) {
+        if (!result[k]) result[k] = entry;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Derive client context from config for AI scoring (preferred regions, value ranges, etc.)
+ */
+function buildClientContextFromConfig(clientConfig: ClientConfig): {
+  preferredProjectTypes?: string[];
+  preferredRegions?: string[];
+  minProjectValue?: number;
+  maxProjectValue?: number;
+  specializations?: string[];
+} | undefined {
+  const tags = clientConfig.strategicTags;
+  if (!tags || tags.length === 0) return undefined;
+
+  const ctx: {
+    preferredProjectTypes?: string[];
+    preferredRegions?: string[];
+    minProjectValue?: number;
+    maxProjectValue?: number;
+    specializations?: string[];
+  } = {};
+
+  for (const tag of tags) {
+    if (tag.field === "project_location" && tag.matchType === "contains") {
+      ctx.preferredRegions = ctx.preferredRegions ?? [];
+      if (!ctx.preferredRegions.includes(tag.value)) ctx.preferredRegions.push(tag.value);
+    }
+    if (tag.field === "project_value_estimate" && tag.matchType === "value_band") {
+      const match = tag.value.match(/min:(\d+)/);
+      if (match) ctx.minProjectValue = parseInt(match[1], 10);
+      const maxMatch = tag.value.match(/max:(\d+)/);
+      if (maxMatch) ctx.maxProjectValue = parseInt(maxMatch[1], 10);
+    }
+    if (tag.field === "scope_of_work" && tag.matchType === "contains") {
+      ctx.specializations = ctx.specializations ?? [];
+      if (!ctx.specializations.includes(tag.value)) ctx.specializations.push(tag.value);
+    }
+  }
+
+  return Object.keys(ctx).length > 0 ? ctx : undefined;
 }
 
 /**
@@ -260,6 +337,20 @@ export const decisionsService = {
       }
     }
 
+    // Add bid metadata as fallback (projectName, senderCompany, etc.) so criteria can match
+    if (bid.projectName && !extractedFieldData.project_name && !extractedFieldData.projectName) {
+      extractedFieldData.project_name = { value: bid.projectName, confidence: 1.0 };
+      extractedFieldData.projectName = extractedFieldData.project_name;
+    }
+    if (bid.senderCompany && !extractedFieldData.sender_company) {
+      extractedFieldData.sender_company = { value: bid.senderCompany, confidence: 1.0 };
+    }
+    if (bid.senderName && !extractedFieldData.sender_name) {
+      extractedFieldData.sender_name = { value: bid.senderName, confidence: 1.0 };
+    }
+
+    extractedFieldData = applyFieldAliases(extractedFieldData);
+
     const scoringInput: ScoringInput = {
       bidId,
       clientId: bid.clientId,
@@ -272,12 +363,14 @@ export const decisionsService = {
       },
     };
 
-    // 5. Build scoring options for AI
+    // 5. Build scoring options for AI (include client context for optimal scoring)
+    const clientContext = buildClientContextFromConfig(clientConfig);
     const scoringOptions: ScoringOptions = {
       useAI: useAI || aiOnly,
       aiWeight,
       projectName: bid.projectName || undefined,
       clientName: bid.clientName || undefined,
+      clientContext,
     };
 
     // 6. Run scoring engine (rules, AI, or hybrid)

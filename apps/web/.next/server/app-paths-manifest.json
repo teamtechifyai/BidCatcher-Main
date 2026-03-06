@@ -1,3 +1,7 @@
 {
-  "/workspace/[id]/analytics/page": "app/workspace/[id]/analytics/page.js"
+  "/page": "app/page.js",
+  "/bids/page": "app/bids/page.js",
+  "/intake/page": "app/intake/page.js",
+  "/bids/[id]/page": "app/bids/[id]/page.js",
+  "/incoming-bids/page": "app/incoming-bids/page.js"
 }

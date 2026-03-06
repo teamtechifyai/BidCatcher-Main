@@ -19,6 +19,7 @@ import {
   extractEmail,
 } from "./resend-incoming.js";
 import { syncBidToGhl } from "./ghl-sync.js";
+import { pdfExtractionService } from "./pdf-extraction.js";
 
 // ----- Types -----
 
@@ -660,6 +661,21 @@ export const incomingEmailsService = {
         console.log(`[incoming-emails] Created ${documentCount} bid_documents for bid ${newBid.id}`);
       }
 
+      // Run PDF extraction on pending documents (same as manual upload flow)
+      const pendingCount = attachmentsWithContent.filter((a) => a.contentBase64).length;
+      if (pendingCount > 0) {
+        console.log(`[incoming-emails] Running extraction on ${pendingCount} document(s) for bid ${newBid.id}`);
+        try {
+          const extractResult = await pdfExtractionService.extractAllPendingDocuments(newBid.id);
+          console.log(
+            `[incoming-emails] Extraction complete for bid ${newBid.id}: ${extractResult.processed} processed, ${extractResult.failed} failed`
+          );
+        } catch (extractErr) {
+          console.warn(`[incoming-emails] Extraction failed for bid ${newBid.id}:`, extractErr);
+          // Don't fail the whole process - bid and documents are created; extraction can be retried
+        }
+      }
+
       await db
         .update(incomingBidEmails)
         .set({
@@ -972,6 +988,19 @@ export const incomingEmailsService = {
         ? "Documents already have content"
         : "No content could be downloaded from Resend";
     console.log(`[incoming-emails] Sync for bid ${bidId}: ${msg}`);
+
+    // Run extraction on any newly created/updated pending documents
+    if (created > 0 || updated > 0) {
+      try {
+        const extractResult = await pdfExtractionService.extractAllPendingDocuments(bidId);
+        if (extractResult.processed > 0) {
+          console.log(`[incoming-emails] Extraction after sync: ${extractResult.processed} document(s) for bid ${bidId}`);
+        }
+      } catch (extractErr) {
+        console.warn(`[incoming-emails] Extraction failed after sync for bid ${bidId}:`, extractErr);
+      }
+    }
+
     return { success: true, created, updated, message: msg };
   },
 

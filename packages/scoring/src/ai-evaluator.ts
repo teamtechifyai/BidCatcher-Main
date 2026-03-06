@@ -116,10 +116,13 @@ export async function evaluateWithAI(
 
     const parsedResponse = await parser.parse(response.content.toString());
 
+    // Clamp confidence to 0-100 (AI may occasionally return out-of-range values)
+    const confidence = Math.min(100, Math.max(0, Number(parsedResponse.confidence) || 0));
+
     return {
       success: true,
       recommendation: parsedResponse.recommendation,
-      confidence: parsedResponse.confidence,
+      confidence,
       reasoning: parsedResponse.reasoning,
       keyFactors: {
         positive: parsedResponse.positiveFactors,
@@ -186,6 +189,8 @@ function buildEvaluationPrompt(
 
   // Project info
   sections.push("## Project Information");
+  const now = new Date();
+  sections.push(`- **Current Date/Time**: ${now.toISOString()} (use this to assess if bid dates are stale)`);
   if (input.projectName) {
     sections.push(`- **Project Name**: ${input.projectName}`);
   }
@@ -195,15 +200,16 @@ function buildEvaluationPrompt(
   }
   sections.push("");
 
-  // Extracted fields
+  // Extracted fields (normalize confidence: support both 0-1 and 0-100 scales)
   sections.push("## Extracted Bid Data");
   const fields = input.extractedFields;
   if (Object.keys(fields).length > 0) {
     for (const [key, data] of Object.entries(fields)) {
       if (data.value !== null && data.value !== undefined) {
-        const confidenceLabel = data.confidence >= 0.8 ? "✓" : data.confidence >= 0.5 ? "~" : "?";
+        const conf = data.confidence > 1 ? data.confidence / 100 : data.confidence;
+        const confidenceLabel = conf >= 0.8 ? "✓ high" : conf >= 0.5 ? "~ medium" : "? low";
         const label = formatFieldLabel(key);
-        sections.push(`- **${label}**: ${data.value} ${confidenceLabel}`);
+        sections.push(`- **${label}**: ${data.value} (${confidenceLabel})`);
       }
     }
   } else {
@@ -211,11 +217,12 @@ function buildEvaluationPrompt(
   }
   sections.push("");
 
-  // Scoring criteria context
+  // Scoring criteria context (include descriptions for optimal AI evaluation)
   if (input.scoringCriteria && input.scoringCriteria.length > 0) {
     sections.push("## Evaluation Criteria (Client-Defined)");
     for (const criterion of input.scoringCriteria) {
-      sections.push(`- **${criterion.name}** (weight: ${criterion.weight}): ${criterion.maxPoints} max points`);
+      const desc = criterion.description ? ` — ${criterion.description}` : "";
+      sections.push(`- **${criterion.name}** (weight: ${criterion.weight}, max: ${criterion.maxPoints} pts)${desc}`);
     }
     sections.push("");
   }
@@ -269,7 +276,13 @@ function buildEvaluationPrompt(
   // Request
   sections.push("## Your Task");
   sections.push("Analyze this bid opportunity and provide your Go/No-Go recommendation with detailed reasoning.");
-  sections.push("Consider project fit, risks, timeline feasibility, and any red flags or opportunities you identify.");
+  sections.push("");
+  sections.push("**Critical constraints:**");
+  sections.push("- ONLY base your recommendation on the evaluation criteria listed above. Do NOT reject or approve based on factors not in the config.");
+  sections.push("- If a criterion is not in the config, do not use it as a reason. Stick strictly to the configured criteria.");
+  sections.push("- Use the Current Date/Time to flag stale bid dates (e.g. bid due date in the past).");
+  sections.push("- confidence MUST be a number between 0 and 100 (percentage). Use 0 for no confidence, 100 for full confidence.");
+  sections.push("- Base your confidence on how much relevant data is available and how clear the fit/no-fit signals are for the configured criteria.");
 
   return sections.join("\n");
 }
@@ -312,9 +325,12 @@ export function mergeEvaluationResults(
   const ruleScore = outcomeToScore[ruleBasedOutcome];
   const aiScore = outcomeToScore[aiResult.recommendation];
 
-  // Weighted combination
+  // Weighted combination (clamp confidence to 0-100)
   const combinedScore = ruleScore * (1 - aiWeight) + aiScore * aiWeight;
-  const combinedConfidence = ruleBasedScore * (1 - aiWeight) + aiResult.confidence * aiWeight;
+  const combinedConfidence = Math.min(
+    100,
+    Math.max(0, ruleBasedScore * (1 - aiWeight) + aiResult.confidence * aiWeight)
+  );
 
   // Determine final outcome based on combined score
   let finalOutcome: "GO" | "MAYBE" | "NO";
